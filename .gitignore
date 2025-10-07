@@ -1,0 +1,10 @@
+# Local env vars (do not commit secrets)
+.env
+
+# Node
+node_modules/
+
+# Build output
+dist/
+
+
