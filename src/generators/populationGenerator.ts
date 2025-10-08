@@ -17,10 +17,16 @@ type Activity = {
 type Person = {
   id: number;
   age: number;
+  sex: "male" | "female";
+  firstName: string;
+  lastName: string;
   activities: Activity[];
 };
 
 const transportMethods = ["personal car", "public transport", "taxi", "uber", "bike", "walk"];
+const maleFirstNames = ["Liam", "Noah", "Oliver", "Elijah", "James", "Leo", "Lucas", "Mason", "Ethan", "Louis"];
+const femaleFirstNames = ["Emma", "Olivia", "Ava", "Sophia", "Isabella", "Mia", "Charlotte", "Amelia", "Evelyn", "Alice"];
+const lastNames = ["Martin", "Bernard", "Thomas", "Petit", "Robert", "Richard", "Durand", "Dubois", "Moreau", "Laurent"];
 
 function randomChoice<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -43,16 +49,34 @@ function generateActivities(age: number, zonesPolygons: Record<string, Feature<P
     { name: "home", startTime: "21:00", endTime: "23:59" }
   ];
 
+  // Generate consistent home coordinates for this person
+  const homeZone = randomChoice(Object.keys(zonesPolygons));
+  const homePolygon = zonesPolygons[homeZone];
+  const homeCoordinates = getRandomPointInPolygon(homePolygon);
+
   for (const activity of activityTimes) {
-    const zone = randomChoice(Object.keys(zonesPolygons));
-    const polygon = zonesPolygons[zone];
+    let zone: string;
+    let coordinates: Coordinates;
+    
+    if (activity.name === "home") {
+      // Use the same home zone and coordinates for all home activities
+      zone = homeZone;
+      coordinates = homeCoordinates;
+    } else {
+      // Generate random zone and coordinates for non-home activities
+      zone = randomChoice(Object.keys(zonesPolygons));
+      const polygon = zonesPolygons[zone];
+      coordinates = getRandomPointInPolygon(polygon);
+    }
+    
+    const allowedTransport = age >= 18 ? transportMethods : transportMethods.filter((t) => t !== "personal car");
     activities.push({
       name: activity.name,
       startTime: activity.startTime,
       endTime: activity.endTime,
       zone,
-      coordinates: getRandomPointInPolygon(polygon),
-      transport: randomChoice(transportMethods)
+      coordinates,
+      transport: randomChoice(allowedTransport)
     });
   }
 
@@ -82,9 +106,15 @@ export function generatePopulation(numPeople: number): Person[] {
 
   for (let i = 0; i < numPeople; i++) {
     const age = Math.floor(Math.random() * 80) + 1; // Age between 1 and 80
+    const sex = Math.random() < 0.5 ? "male" : "female";
+    const firstName = sex === "male" ? randomChoice(maleFirstNames) : randomChoice(femaleFirstNames);
+    const lastName = randomChoice(lastNames);
     population.push({
       id: i + 1,
       age,
+      sex,
+      firstName,
+      lastName,
       activities: generateActivities(age, zonesPolygons)
     });
   }
