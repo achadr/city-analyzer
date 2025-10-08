@@ -3,40 +3,29 @@ import mapboxgl from "mapbox-gl";
 import type { FilterSpecification } from "mapbox-gl";
 import { toMinutes, filterByTime } from "./utils/time";
 import { makeAgeFilter, filterByAgeBand } from "./utils/age";
+import { Person, ActivityChainData, PersonSelectionCallback, ActivityChainToggleCallback, AgeBand } from "../types";
+import { 
+  POINT_RADIUS, 
+  POINT_STROKE_WIDTH, 
+  SELECTED_POINT_RADIUS, 
+  SELECTED_POINT_STROKE_WIDTH,
+  CLUSTER_RADIUS,
+  CLUSTER_MAX_ZOOM,
+  ACTIVITY_COLORS,
+  CLUSTER_COLORS,
+  CLUSTER_THRESHOLDS,
+  MAP_CONFIG
+} from "../constants";
 
 type MapViewProps = {
   accessToken: string;
   arrondissementsVisible?: boolean;
   populationVisible?: boolean;
-  ageBand?: "all" | "0-17" | "18-25" | "26-30" | "31-64" | "65+";
+  ageBand?: AgeBand;
   minutes?: number; // 0..1439
-  onPersonSelect?: (person: {
-    age: number;
-    sex: "male" | "female";
-    firstName: string;
-    lastName: string;
-    activities: {
-      name: string;
-      startTime: string;
-      endTime: string;
-      zone: string;
-      coordinates: { lat: number; lng: number };
-      transport: string;
-    }[];
-  } | null) => void;
+  onPersonSelect?: PersonSelectionCallback;
   showActivityChain?: boolean;
-  activityChainData?: {
-    id: number;
-    age: number;
-    activities: {
-      name: string;
-      startTime: string;
-      endTime: string;
-      zone: string;
-      coordinates: { lat: number; lng: number };
-      transport: string;
-    }[];
-  } | null;
+  activityChainData?: ActivityChainData | null;
 };
 
 export default function MapView({ accessToken, arrondissementsVisible = true, populationVisible = true, ageBand = "all", minutes = 480, onPersonSelect, showActivityChain = false, activityChainData = null }: MapViewProps): React.JSX.Element {
@@ -114,12 +103,12 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
     if (!mapContainer.current || mapRef.current) return;
     mapboxgl.accessToken = accessToken;
 
-    const map = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: "mapbox://styles/mapbox/light-v11",
-      center: [2.3522, 48.8566],
-      zoom: 10.5
-    });
+            const map = new mapboxgl.Map({
+              container: mapContainer.current,
+              style: MAP_CONFIG.style,
+              center: MAP_CONFIG.center,
+              zoom: MAP_CONFIG.zoom
+            });
     mapRef.current = map;
 
     map.on("load", () => {
@@ -147,12 +136,12 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
       }, "arr-outline");
 
       // Create a clustered GeoJSON source for population. We'll load and convert JSON → GeoJSON.
-      map.addSource("population", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-        cluster: true,
-        clusterMaxZoom: 13,
-        clusterRadius: 40,
+              map.addSource("population", {
+                type: "geojson",
+                data: { type: "FeatureCollection", features: [] },
+                cluster: true,
+                clusterMaxZoom: CLUSTER_MAX_ZOOM,
+                clusterRadius: CLUSTER_RADIUS,
         clusterProperties: {
           home: ["+", ["case", ["==", ["get", "activity"], "home"], 1, 0]],
           work: ["+", ["case", ["==", ["get", "activity"], "work"], 1, 0]],
@@ -188,16 +177,16 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
         type: "circle",
         source: "population",
         filter: ["has", "point_count"],
-        paint: {
-          "circle-color": [
-            "step",
-            ["get", "point_count"],
-            "#A0E3FF",
-            100,
-            "#5CC8FF",
-            500,
-            "#2491EB"
-          ],
+                paint: {
+                  "circle-color": [
+                    "step",
+                    ["get", "point_count"],
+                    CLUSTER_COLORS.small,
+                    CLUSTER_THRESHOLDS.medium,
+                    CLUSTER_COLORS.medium,
+                    CLUSTER_THRESHOLDS.large,
+                    CLUSTER_COLORS.large
+                  ],
           "circle-radius": [
             "step",
             ["get", "point_count"],
@@ -230,15 +219,15 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
           "circle-color": [
             "match",
             ["get", "activity"],
-            "home", "#3b82f6",
-            "work", "#22c55e",
-            "school", "#facc15",
-            "education", "#facc15",
-            "leisure", "#fb923c",
-            "#e15759"
+            "home", ACTIVITY_COLORS.home,
+            "work", ACTIVITY_COLORS.work,
+            "school", ACTIVITY_COLORS.school,
+            "education", ACTIVITY_COLORS.education,
+            "leisure", ACTIVITY_COLORS.leisure,
+            ACTIVITY_COLORS.default
           ],
-          "circle-radius": 6,
-          "circle-stroke-width": 1.5,
+          "circle-radius": POINT_RADIUS,
+          "circle-stroke-width": POINT_STROKE_WIDTH,
           "circle-stroke-color": "#fff"
         }
       });
@@ -249,12 +238,12 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
         id: selectedLayerId,
         type: "circle",
         source: "selected-point",
-        paint: {
-          "circle-color": "#ffffff",
-          "circle-radius": 10,
-          "circle-stroke-width": 3,
-          "circle-stroke-color": "#111827"
-        }
+                paint: {
+                  "circle-color": "#ffffff",
+                  "circle-radius": SELECTED_POINT_RADIUS,
+                  "circle-stroke-width": SELECTED_POINT_STROKE_WIDTH,
+                  "circle-stroke-color": "#111827"
+                }
       });
 
       // Add line layer for activity chain connections

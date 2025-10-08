@@ -1,60 +1,17 @@
 import React from "react";
-
-type Coordinates = { lat: number; lng: number };
-type Activity = {
-  name: string;
-  startTime: string;
-  endTime: string;
-  zone: string;
-  coordinates: Coordinates;
-  transport: string;
-};
-
-type Person = {
-  id?: number;
-  age: number;
-  sex: "male" | "female";
-  firstName: string;
-  lastName: string;
-  activities: Activity[];
-};
+import { Person, ActivityChainData, ActivityChainToggleCallback } from "../types";
+import { PANEL_STYLES, BUTTON_STYLES, SPACING, FONT_SIZES, COLORS } from "../styles";
+import { TIMELINE_ICON_SIZE } from "../constants";
+import ActivityIcon from "./icons/ActivityIcon";
 
 type Props = {
   person: Person | null;
   onClose: () => void;
-  onActivityChainToggle?: (show: boolean, activityChainData: { id: number; age: number; activities: any[] } | null) => void;
+  onActivityChainToggle?: ActivityChainToggleCallback;
 };
 
 export default function PersonPanel({ person, onClose, onActivityChainToggle }: Props): React.JSX.Element | null {
   const [showActivityChain, setShowActivityChain] = React.useState(false);
-  function activityIcon(name: string): React.JSX.Element {
-    const key = name.toLowerCase();
-    const iconStyle = { width: 20, height: 20, stroke: "currentColor", strokeWidth: 2, fill: "none" };
-    
-    if (key === "home") {
-      return (
-        <img src="/src/components/icons/home.svg" alt="home" style={iconStyle} />
-      );
-    }
-    if (key === "work") {
-      return (
-        <img src="/src/components/icons/work.svg" alt="work" style={iconStyle} />
-      );
-    }
-    if (key === "school" || key === "education") {
-      return (
-        <img src="/src/components/icons/school.svg" alt="school" style={iconStyle} />
-      );
-    }
-    if (key === "leisure") {
-      return (
-        <img src="/src/components/icons/leisure.svg" alt="leisure" style={iconStyle} />
-      );
-    }
-    return (
-      <img src="/src/components/icons/default.svg" alt="default" style={iconStyle} />
-    );
-  }
   function transportStyle(transport: string | undefined): { color: string; dashed: boolean; label: string } {
     const t = (transport || "").toLowerCase();
     if (t === "personal car") return { color: "#ef4444", dashed: false, label: "Personal car" };
@@ -76,22 +33,22 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle }: 
     return "";
   }
   return (
-    <div style={{ position: "absolute", top: 0, right: 0, height: "100%", width: 360, background: "#fff", boxShadow: "-4px 0 16px rgba(0,0,0,0.15)", zIndex: 1000, display: "flex", flexDirection: "column", fontFamily: "system-ui, sans-serif" }}>
-      <div style={{ padding: 12, borderBottom: "1px solid #eee", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+    <div style={PANEL_STYLES.container}>
+      <div style={PANEL_STYLES.header}>
         <strong>Person details</strong>
-        <button onClick={onClose} style={{ border: "none", background: "#f3f4f6", padding: "6px 10px", borderRadius: 6, cursor: "pointer" }}>Close</button>
+        <button onClick={onClose} style={BUTTON_STYLES.close}>Close</button>
       </div>
-      <div style={{ padding: 12, overflow: "auto" }}>
+      <div style={PANEL_STYLES.content}>
         {!person ? (
-          <div style={{ color: "#6b7280" }}>Click an individual point to view details.</div>
+          <div style={{ color: COLORS.gray[500] }}>Click an individual point to view details.</div>
         ) : (
           <div>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 18, fontWeight: 600 }}>{person.firstName} {person.lastName}</div>
+            <div style={{ marginBottom: SPACING.md }}>
+              <div style={{ fontSize: FONT_SIZES.lg, fontWeight: 600 }}>{person.firstName} {person.lastName}</div>
               <div><strong>Sex:</strong> {person.sex}</div>
               <div><strong>Age:</strong> {person.age}</div>
             </div>
-            <div style={{ marginBottom: 12 }}>
+            <div style={{ marginBottom: SPACING.md }}>
               <button 
                 onClick={() => {
                   const newShowState = !showActivityChain;
@@ -104,11 +61,8 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle }: 
                   }
                 }}
                 style={{ 
-                  border: "1px solid #d1d5db", 
-                  background: showActivityChain ? "#f3f4f6" : "#fff", 
-                  padding: "8px 12px", 
-                  borderRadius: 6, 
-                  cursor: "pointer",
+                  ...BUTTON_STYLES.secondary,
+                  background: showActivityChain ? COLORS.gray[100] : COLORS.white, 
                   width: "100%",
                   textAlign: "left"
                 }}
@@ -129,9 +83,9 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle }: 
                       <div style={{ display: "flex", gap: 10, justifyContent: "flex-start", alignItems: "center" }}>
                         <div style={{ width: 32, display: "flex", flexDirection: "column", alignItems: "center" }}>
                           
-                          <div style={{ width: 28, height: 28, borderRadius: 14, background: "#fff", color: "#111827", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>
-                            {activityIcon(a.name)}
-                          </div>
+                                  <div style={{ width: TIMELINE_ICON_SIZE, height: TIMELINE_ICON_SIZE, borderRadius: TIMELINE_ICON_SIZE/2, background: COLORS.white, color: COLORS.gray[900], display: "flex", alignItems: "center", justifyContent: "center", fontSize: FONT_SIZES.xs }}>
+                                    <ActivityIcon name={a.name} size={20} />
+                                  </div>
                         </div>
                         <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
                           <strong style={{ textTransform: "capitalize" }}>{a.name}</strong>

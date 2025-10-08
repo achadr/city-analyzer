@@ -3,6 +3,8 @@ import MapView from "./maps/MapView";
 import SidePanel from "./components/SidePanel";
 import TimeSlider from "./components/TimeSlider";
 import PersonPanel from "./components/PersonPanel";
+import { Person, LayersState, FiltersState, ActivityChainData, PersonSelectionCallback, ActivityChainToggleCallback } from "./types";
+import { DEFAULT_TIME } from "./constants";
 
 export default function App(): React.JSX.Element {
   const token = import.meta.env.VITE_MAPBOX_TOKEN as string;
@@ -20,44 +22,19 @@ export default function App(): React.JSX.Element {
     );
   }
   const [activeTab, setActiveTab] = useState<"layers" | "filters">("layers");
-  const [layers, setLayers] = useState({ arrondissementsVisible: true, populationVisible: true });
-  const [filters, setFilters] = useState({ ageBand: "all" as "all" | "0-17" | "18-25" | "26-30" | "31-64" | "65+" });
-  const [minutes, setMinutes] = useState(8 * 60); // 08:00
-  const [selectedPerson, setSelectedPerson] = useState<null | {
-    id?: number;
-    age: number;
-    sex: "male" | "female";
-    firstName: string;
-    lastName: string;
-    activities: {
-      name: string;
-      startTime: string;
-      endTime: string;
-      zone: string;
-      coordinates: { lat: number; lng: number };
-      transport: string;
-    }[];
-  }>(null);
+  const [layers, setLayers] = useState<LayersState>({ arrondissementsVisible: true, populationVisible: true });
+  const [filters, setFilters] = useState<FiltersState>({ ageBand: "all" });
+  const [minutes, setMinutes] = useState(DEFAULT_TIME);
+  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [showActivityChain, setShowActivityChain] = useState(false);
-  const [activityChainData, setActivityChainData] = useState<null | {
-    id: number;
-    age: number;
-    activities: {
-      name: string;
-      startTime: string;
-      endTime: string;
-      zone: string;
-      coordinates: { lat: number; lng: number };
-      transport: string;
-    }[];
-  }>(null);
+  const [activityChainData, setActivityChainData] = useState<ActivityChainData | null>(null);
 
-  const handleActivityChainToggle = (show: boolean, data: typeof activityChainData) => {
+  const handleActivityChainToggle: ActivityChainToggleCallback = (show, data) => {
     setShowActivityChain(show);
     setActivityChainData(data);
   };
 
-  const handlePersonSelect = (person: typeof selectedPerson) => {
+  const handlePersonSelect: PersonSelectionCallback = (person) => {
     setSelectedPerson(person);
     // Reset activity chain when selecting a new person
     setShowActivityChain(false);
