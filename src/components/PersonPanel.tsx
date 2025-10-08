@@ -36,7 +36,7 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle }: 
     <div style={PANEL_STYLES.container}>
       <div style={PANEL_STYLES.header}>
         <strong>Person details</strong>
-        <button onClick={onClose} style={BUTTON_STYLES.close}>Close</button>
+        {/* <button onClick={onClose} style={BUTTON_STYLES.close}>Close</button> */}
       </div>
       <div style={PANEL_STYLES.content}>
         {!person ? (
@@ -49,22 +49,23 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle }: 
               <div><strong>Age:</strong> {person.age}</div>
             </div>
             <div style={{ marginBottom: SPACING.md }}>
-              <button 
+              <button
                 onClick={() => {
                   const newShowState = !showActivityChain;
                   setShowActivityChain(newShowState);
                   if (onActivityChainToggle && person) {
                     onActivityChainToggle(
-                      newShowState, 
+                      newShowState,
                       newShowState ? { id: person.id || 0, age: person.age, activities: person.activities } : null
                     );
                   }
                 }}
-                style={{ 
+                style={{
                   ...BUTTON_STYLES.secondary,
-                  background: showActivityChain ? COLORS.gray[100] : COLORS.white, 
+                  background: showActivityChain ? COLORS.gray[100] : COLORS.white,
                   width: "100%",
-                  textAlign: "left"
+                  textAlign: "left",
+                  transition: "all 0.2s ease-in-out"
                 }}
               >
                 {showActivityChain ? "Hide" : "Show"} Activity Chain
