@@ -1,17 +1,37 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Person, ActivityChainData, ActivityChainToggleCallback } from "../types";
 import { PANEL_STYLES, BUTTON_STYLES, SPACING, FONT_SIZES, COLORS } from "../styles";
-import { TIMELINE_ICON_SIZE } from "../constants";
+import { TIMELINE_ICON_SIZE, CHART_CONFIG, ACTIVITY_COLORS } from "../constants";
 import ActivityIcon from "./icons/ActivityIcon";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { calculateZoneMetrics } from "../maps/utils/zoneMetrics";
+
+type DrawnZone = {
+  id: string;
+  type: string;
+  geometry: GeoJSON.Geometry;
+  properties: any;
+};
 
 type Props = {
   person: Person | null;
   onClose: () => void;
   onActivityChainToggle?: ActivityChainToggleCallback;
+  selectedZone?: DrawnZone | null;
+  populationData?: Person[];
 };
 
-export default function PersonPanel({ person, onClose, onActivityChainToggle }: Props): React.JSX.Element | null {
+export default function PersonPanel({ person, onClose, onActivityChainToggle, selectedZone, populationData = [] }: Props): React.JSX.Element | null {
   const [showActivityChain, setShowActivityChain] = React.useState(false);
+
+  // Calculate zone metrics when a zone is selected
+  const zoneMetrics = useMemo(() => {
+    if (selectedZone && populationData.length > 0) {
+      return calculateZoneMetrics(selectedZone, populationData);
+    }
+    return null;
+  }, [selectedZone, populationData]);
+
   function transportStyle(transport: string | undefined): { color: string; dashed: boolean; label: string } {
     const t = (transport || "").toLowerCase();
     if (t === "personal car") return { color: "#ef4444", dashed: false, label: "Personal car" };
@@ -35,11 +55,98 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle }: 
   return (
     <div style={PANEL_STYLES.container}>
       <div style={PANEL_STYLES.header}>
-        <strong>Person details</strong>
-        <button onClick={onClose} style={BUTTON_STYLES.close}>Close</button>
+        <strong>{selectedZone ? "Zone details" : "Person details"}</strong>
+        {/* <button onClick={onClose} style={BUTTON_STYLES.close}>Close</button> */}
       </div>
       <div style={PANEL_STYLES.content}>
-        {!person ? (
+        {selectedZone && zoneMetrics ? (
+          <div>
+            <div style={{ marginBottom: SPACING.md }}>
+              <div style={{ fontSize: FONT_SIZES.lg, fontWeight: 600 }}>Zone Metrics</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: SPACING.sm, marginTop: SPACING.sm }}>
+                <div style={{ padding: SPACING.sm, background: COLORS.gray[50], borderRadius: 4 }}>
+                  <div style={{ fontSize: FONT_SIZES.xs, color: COLORS.gray[600] }}>Total Activities</div>
+                  <div style={{ fontSize: FONT_SIZES.xl, fontWeight: 600, color: COLORS.primary }}>{zoneMetrics.totalActivities}</div>
+                </div>
+                <div style={{ padding: SPACING.sm, background: COLORS.gray[50], borderRadius: 4 }}>
+                  <div style={{ fontSize: FONT_SIZES.xs, color: COLORS.gray[600] }}>Unique Visitors</div>
+                  <div style={{ fontSize: FONT_SIZES.xl, fontWeight: 600, color: COLORS.success }}>{zoneMetrics.uniqueVisitors}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Activities by Hour Chart */}
+            <div style={{ marginBottom: SPACING.md }}>
+              <h4 style={{ margin: `0 0 ${SPACING.sm}px 0`, fontSize: FONT_SIZES.base }}>Activities per Hour</h4>
+              <ResponsiveContainer width="100%" height={CHART_CONFIG.defaultHeight}>
+                <BarChart data={zoneMetrics.activitiesByHour}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="hour"
+                    tick={{ fontSize: CHART_CONFIG.tickFontSize }}
+                    ticks={CHART_CONFIG.keyHours}
+                    tickFormatter={(hour) => {
+                      if (hour === 0) return '12 AM';
+                      if (hour === 12) return '12 PM';
+                      return hour < 12 ? `${hour} AM` : `${hour - 12} PM`;
+                    }}
+                  />
+                  <YAxis tick={{ fontSize: CHART_CONFIG.tickFontSize }} />
+                  <Tooltip
+                    labelFormatter={(hour) => {
+                      if (hour === 0) return '12:00 AM';
+                      if (hour === 12) return '12:00 PM';
+                      return hour < 12 ? `${hour}:00 AM` : `${hour - 12}:00 PM`;
+                    }}
+                  />
+                  <Bar dataKey="count" fill={CHART_CONFIG.neutralColor} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Age Distribution Chart */}
+            <div style={{ marginBottom: SPACING.md }}>
+              <h4 style={{ margin: `0 0 ${SPACING.sm}px 0`, fontSize: FONT_SIZES.base }}>Age Distribution</h4>
+              <ResponsiveContainer width="100%" height={CHART_CONFIG.defaultHeight}>
+                <BarChart data={zoneMetrics.ageDistribution}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="ageGroup" tick={{ fontSize: CHART_CONFIG.tickFontSize }} />
+                  <YAxis tick={{ fontSize: CHART_CONFIG.tickFontSize }} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill={CHART_CONFIG.neutralColor} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Activity Types Chart */}
+            <div style={{ marginBottom: SPACING.md }}>
+              <h4 style={{ margin: `0 0 ${SPACING.sm}px 0`, fontSize: FONT_SIZES.base }}>Activity Types</h4>
+              <ResponsiveContainer width="100%" height={CHART_CONFIG.pieChartHeight}>
+                <PieChart>
+                  <Pie
+                    data={zoneMetrics.activityTypes}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={(entry) => `${entry.type}: ${entry.count}`}
+                    outerRadius={CHART_CONFIG.pieChartRadius}
+                    fill="#8884d8"
+                    dataKey="count"
+                  >
+                    {zoneMetrics.activityTypes.map((entry, index) => {
+                      const typeLower = entry.type.toLowerCase();
+                      const color = typeLower in ACTIVITY_COLORS
+                        ? ACTIVITY_COLORS[typeLower as keyof typeof ACTIVITY_COLORS]
+                        : '#9ca3af';
+                      return <Cell key={`cell-${index}`} fill={color} />;
+                    })}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        ) : !person ? (
           <div style={{ color: COLORS.gray[500] }}>Click an individual point to view details.</div>
         ) : (
           <div>
@@ -49,22 +156,26 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle }: 
               <div><strong>Age:</strong> {person.age}</div>
             </div>
             <div style={{ marginBottom: SPACING.md }}>
-              <button 
+              <button
                 onClick={() => {
                   const newShowState = !showActivityChain;
                   setShowActivityChain(newShowState);
                   if (onActivityChainToggle && person) {
                     onActivityChainToggle(
-                      newShowState, 
+                      newShowState,
                       newShowState ? { id: person.id || 0, age: person.age, activities: person.activities } : null
                     );
                   }
                 }}
-                style={{ 
+                style={{
                   ...BUTTON_STYLES.secondary,
-                  background: showActivityChain ? COLORS.gray[100] : COLORS.white, 
+                  background: showActivityChain ? COLORS.gray[100] : COLORS.white,
                   width: "100%",
-                  textAlign: "left"
+                  textAlign: "left",
+                  transition: "all 0.2s ease-in-out",
+                  boxShadow: showActivityChain
+                    ? "0 0 0 3px rgba(59, 130, 246, 0.3), 0 0 20px rgba(59, 130, 246, 0.4)"
+                    : "none"
                 }}
               >
                 {showActivityChain ? "Hide" : "Show"} Activity Chain

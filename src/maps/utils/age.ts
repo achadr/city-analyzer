@@ -3,20 +3,20 @@ import type { FilterSpecification } from "mapbox-gl";
 
 export type AgeBand = "all" | "0-17" | "18-25" | "26-30" | "31-64" | "65+";
 
-export function makeAgeFilter(band: AgeBand): FilterSpecification {
+export function makeAgeFilter(band: AgeBand): FilterSpecification | null {
   switch (band) {
     case "0-17":
-      return ["all", ["!has", "point_count"], ["<=", ["get", "age"], 17]] as unknown as FilterSpecification;
+      return ["all", ["!has", "point_count"], ["<=", "age", 17]] as unknown as FilterSpecification;
     case "18-25":
-      return ["all", ["!has", "point_count"], [">=", ["get", "age"], 18], ["<=", ["get", "age"], 25]] as unknown as FilterSpecification;
+      return ["all", ["!has", "point_count"], [">=", "age", 18], ["<=", "age", 25]] as unknown as FilterSpecification;
     case "26-30":
-      return ["all", ["!has", "point_count"], [">=", ["get", "age"], 26], ["<=", ["get", "age"], 30]] as unknown as FilterSpecification;
+      return ["all", ["!has", "point_count"], [">=", "age", 26], ["<=", "age", 30]] as unknown as FilterSpecification;
     case "31-64":
-      return ["all", ["!has", "point_count"], [">=", ["get", "age"], 31], ["<=", ["get", "age"], 64]] as unknown as FilterSpecification;
+      return ["all", ["!has", "point_count"], [">=", "age", 31], ["<=", "age", 64]] as unknown as FilterSpecification;
     case "65+":
-      return ["all", ["!has", "point_count"], [">=", ["get", "age"], 65]] as unknown as FilterSpecification;
+      return ["all", ["!has", "point_count"], [">=", "age", 65]] as unknown as FilterSpecification;
     default:
-      return ["all", ["!has", "point_count"]] as unknown as FilterSpecification;
+      return ["!has", "point_count"] as unknown as FilterSpecification;
   }
 }
 

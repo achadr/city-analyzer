@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import MapView from "./maps/MapView";
+import React, { useState, useEffect } from "react";
+import MapView, { DrawnZone, ZoneSelectionCallback } from "./maps/MapView";
 import SidePanel from "./components/SidePanel";
 import TimeSlider from "./components/TimeSlider";
 import PersonPanel from "./components/PersonPanel";
@@ -28,6 +28,16 @@ export default function App(): React.JSX.Element {
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [showActivityChain, setShowActivityChain] = useState(false);
   const [activityChainData, setActivityChainData] = useState<ActivityChainData | null>(null);
+  const [selectedZone, setSelectedZone] = useState<DrawnZone | null>(null);
+  const [populationData, setPopulationData] = useState<Person[]>([]);
+
+  // Load population data
+  useEffect(() => {
+    fetch("/data/population.json")
+      .then((r) => r.json())
+      .then((data) => setPopulationData(data))
+      .catch((e) => console.error("Failed to load population.json", e));
+  }, []);
 
   const handleActivityChainToggle: ActivityChainToggleCallback = (show, data) => {
     setShowActivityChain(show);
@@ -39,6 +49,18 @@ export default function App(): React.JSX.Element {
     // Reset activity chain when selecting a new person
     setShowActivityChain(false);
     setActivityChainData(null);
+    // Clear zone selection when selecting a person
+    setSelectedZone(null);
+  };
+
+  const handleZoneSelect: ZoneSelectionCallback = (zone) => {
+    setSelectedZone(zone);
+    // Clear person selection when selecting a zone
+    if (zone) {
+      setSelectedPerson(null);
+      setShowActivityChain(false);
+      setActivityChainData(null);
+    }
   };
 
   return (
@@ -60,15 +82,19 @@ export default function App(): React.JSX.Element {
         onPersonSelect={handlePersonSelect}
         showActivityChain={showActivityChain}
         activityChainData={activityChainData}
+        onZoneSelect={handleZoneSelect}
       />
-      <PersonPanel 
-        person={selectedPerson} 
+      <PersonPanel
+        person={selectedPerson}
         onClose={() => {
           setSelectedPerson(null);
           setShowActivityChain(false);
           setActivityChainData(null);
+          setSelectedZone(null);
         }}
         onActivityChainToggle={handleActivityChainToggle}
+        selectedZone={selectedZone}
+        populationData={populationData}
       />
       <TimeSlider minutes={minutes} onChange={setMinutes} />
     </div>
