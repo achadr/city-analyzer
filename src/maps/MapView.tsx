@@ -1,13 +1,15 @@
 import React, { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
+import MapboxDraw from "@mapbox/mapbox-gl-draw";
+import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 import type { FilterSpecification } from "mapbox-gl";
 import { toMinutes, filterByTime } from "./utils/time";
 import { makeAgeFilter, filterByAgeBand } from "./utils/age";
 import { Person, ActivityChainData, PersonSelectionCallback, ActivityChainToggleCallback, AgeBand } from "../types";
-import { 
-  POINT_RADIUS, 
-  POINT_STROKE_WIDTH, 
-  SELECTED_POINT_RADIUS, 
+import {
+  POINT_RADIUS,
+  POINT_STROKE_WIDTH,
+  SELECTED_POINT_RADIUS,
   SELECTED_POINT_STROKE_WIDTH,
   CLUSTER_RADIUS,
   CLUSTER_MAX_ZOOM,
@@ -16,6 +18,15 @@ import {
   CLUSTER_THRESHOLDS,
   MAP_CONFIG
 } from "../constants";
+
+export type DrawnZone = {
+  id: string;
+  type: string;
+  geometry: GeoJSON.Geometry;
+  properties: any;
+};
+
+export type ZoneSelectionCallback = (zone: DrawnZone | null) => void;
 
 type MapViewProps = {
   accessToken: string;
@@ -26,9 +37,10 @@ type MapViewProps = {
   onPersonSelect?: PersonSelectionCallback;
   showActivityChain?: boolean;
   activityChainData?: ActivityChainData | null;
+  onZoneSelect?: ZoneSelectionCallback;
 };
 
-export default function MapView({ accessToken, arrondissementsVisible = true, populationVisible = true, ageBand = "all", minutes = 480, onPersonSelect, showActivityChain = false, activityChainData = null }: MapViewProps): React.JSX.Element {
+export default function MapView({ accessToken, arrondissementsVisible = true, populationVisible = true, ageBand = "all", minutes = 480, onPersonSelect, showActivityChain = false, activityChainData = null, onZoneSelect }: MapViewProps): React.JSX.Element {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const allFeaturesRef = useRef<GeoJSON.FeatureCollection | null>(null);
@@ -39,6 +51,12 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
     handleClick: (e: any) => void;
   } | null>(null);
   const selectedPointRef = useRef<GeoJSON.Feature | null>(null);
+  const hoveredArrondissementIdRef = useRef<string | number | null>(null);
+  const hoveredArrondissementPropsRef = useRef<any>(null);
+  const hoveredArrondissementLngLatRef = useRef<mapboxgl.LngLat | null>(null);
+  const popupRef = useRef<mapboxgl.Popup | null>(null);
+  const currentFiltersRef = useRef({ minutes, ageBand });
+  const drawRef = useRef<MapboxDraw | null>(null);
 
   // Function to create activity chain features
   const createActivityChainFeatures = (activityChainData: any): GeoJSON.FeatureCollection => {
@@ -79,9 +97,9 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
     if (!activityChainData || activityChainData.activities.length < 2) {
       return { type: "FeatureCollection", features: [] };
     }
-    
+
     const coordinates = activityChainData.activities.map((activity: any) => [
-      activity.coordinates.lng, 
+      activity.coordinates.lng,
       activity.coordinates.lat
     ]);
 
@@ -99,6 +117,49 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
     return { type: "FeatureCollection", features: [lineFeature] };
   };
 
+  // Function to generate popup HTML for an arrondissement
+  const generatePopupHTML = (props: any, currentMinutes: number, currentAgeBand: AgeBand) => {
+    const fc = allFeaturesRef.current;
+    let popStats = { total: 0, home: 0, work: 0, education: 0, leisure: 0 };
+
+    if (fc) {
+      const arrName = props.l_ar;
+      const subset = filterByTime(filterByAgeBand(fc, currentAgeBand), currentMinutes);
+      subset.features.forEach((f: any) => {
+        if (f.properties.zone === arrName) {
+          popStats.total++;
+          const activity = f.properties.activity;
+          if (activity === "home") popStats.home++;
+          else if (activity === "work") popStats.work++;
+          else if (activity === "school" || activity === "education") popStats.education++;
+          else if (activity === "leisure") popStats.leisure++;
+        }
+      });
+    }
+
+    const homeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 50 50" fill="none" stroke="#3b82f6" stroke-width="2" style="vertical-align: middle;"><path d="M 24.962891 1.0546875 A 1.0001 1.0001 0 0 0 24.384766 1.2636719 L 1.3847656 19.210938 A 1.0005659 1.0005659 0 0 0 2.6152344 20.789062 L 4 19.708984 L 4 46 A 1.0001 1.0001 0 0 0 5 47 L 18.832031 47 A 1.0001 1.0001 0 0 0 19.158203 47 L 30.832031 47 A 1.0001 1.0001 0 0 0 31.158203 47 L 45 47 A 1.0001 1.0001 0 0 0 46 46 L 46 19.708984 L 47.384766 20.789062 A 1.0005657 1.0005657 0 1 0 48.615234 19.210938 L 41 13.269531 L 41 6 L 35 6 L 35 8.5859375 L 25.615234 1.2636719 A 1.0001 1.0001 0 0 0 24.962891 1.0546875 z M 25 3.3222656 L 44 18.148438 L 44 45 L 32 45 L 32 26 L 18 26 L 18 45 L 6 45 L 6 18.148438 L 25 3.3222656 z M 37 8 L 39 8 L 39 11.708984 L 37 10.146484 L 37 8 z M 20 28 L 30 28 L 30 45 L 20 45 L 20 28 z"></path></svg>';
+    const workIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 426.667 362.667" style="vertical-align: middle;"><g fill="#22c55e" transform="translate(0, -42.667)"><path d="M277.333333,1.42108547e-14 L298.666667,21.3333333 L298.666,64 L426.666667,64 L426.666667,362.666667 L3.55271368e-14,362.666667 L3.55271368e-14,64 L128,64 L128,21.3333333 L149.333333,1.42108547e-14 L277.333333,1.42108547e-14 Z M42.6664912,220.935181 L42.6666667,320 L384,320 L384.000468,220.935097 C341.375319,233.130501 298.701692,240.759085 256.000479,243.809455 L256,277.333333 L170.666667,277.333333 L170.666323,243.809465 C127.965163,240.759108 85.2915887,233.130549 42.6664912,220.935181 Z M384,106.666667 L42.6666667,106.666667 L42.6668606,176.433085 C99.6386775,193.933257 156.507113,202.666667 213.333333,202.666667 C270.159803,202.666667 327.028489,193.933181 384.000558,176.432854 L384,106.666667 Z M256,42.6666667 L170.666667,42.6666667 L170.666667,64 L256,64 L256,42.6666667 Z"></path></g></svg>';
+    const schoolIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align: middle;"><path d="M21 10L12 5L3 10L6 11.6667M21 10L18 11.6667M21 10V10C21.6129 10.3064 22 10.9328 22 11.618V16.9998M6 11.6667L12 15L18 11.6667M6 11.6667V17.6667L12 21L18 17.6667L18 11.6667" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const leisureIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#fb923c" style="vertical-align: middle;"><path d="M20,1H4a1,1,0,0,0-.832,1.555L11,14.3V21H8a1,1,0,0,0,0,2h8a1,1,0,0,0,0-2H13V14.3L20.832,2.555A1,1,0,0,0,20,1ZM12,12.2,5.869,3H18.131Z"/></svg>';
+
+    return `
+      <div style="font-family: system-ui, sans-serif; padding: 12px; min-width: 200px;">
+        <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">${props.l_ar || 'Arrondissement'}</h3>
+        <p style="margin: 0 0 8px 0; font-size: 13px; color: #666;">${props.l_aroff || ''}</p>
+        <div style="margin-top: 12px; font-size: 14px;">
+          <div style="font-weight: 500; margin-bottom: 8px;">Current Activity (${currentMinutes ? Math.floor(currentMinutes / 60).toString().padStart(2, '0') + ':' + (currentMinutes % 60).toString().padStart(2, '0') : ''}):</div>
+          <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 15px;">${homeIcon} <span style="color: #3b82f6; font-weight: 500;">${popStats.home}</span></span>
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 15px;">${workIcon} <span style="color: #22c55e; font-weight: 500;">${popStats.work}</span></span>
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 15px;">${schoolIcon} <span style="color: #facc15; font-weight: 500;">${popStats.education}</span></span>
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 15px;">${leisureIcon} <span style="color: #fb923c; font-weight: 500;">${popStats.leisure}</span></span>
+          </div>
+          <div style="margin-top: 10px; font-weight: 600; font-size: 14px; padding-top: 8px; border-top: 1px solid #e5e7eb;">Total: ${popStats.total} activities</div>
+        </div>
+      </div>
+    `;
+  };
+
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
     mapboxgl.accessToken = accessToken;
@@ -114,7 +175,8 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
     map.on("load", () => {
       map.addSource("arrondissements", {
         type: "geojson",
-        data: "/data/paris-arrondissements.geojson"
+        data: "/data/paris-arrondissements.geojson",
+        promoteId: "c_ar"
       });
 
       map.addLayer({
@@ -130,8 +192,18 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
         type: "fill",
         source: "arrondissements",
         paint: {
-          "fill-color": "#4c78a8",
-          "fill-opacity": 0.15
+          "fill-color": [
+            "case",
+            ["boolean", ["feature-state", "hover"], false],
+            "#3b82f6",
+            "#4c78a8"
+          ],
+          "fill-opacity": [
+            "case",
+            ["boolean", ["feature-state", "hover"], false],
+            0.35,
+            0.15
+          ]
         }
       }, "arr-outline");
 
@@ -349,90 +421,186 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
       map.on("mouseenter", unclusteredId, handleMouseEnter);
       map.on("mouseleave", unclusteredId, handleMouseLeave);
       map.on("click", unclusteredId, handleClick);
-    });
 
-    // Render pies for visible clusters using HTML markers (icon-image feature-state isn't allowed for layout)
-    const markers = new Map<number, mapboxgl.Marker & { _key?: string }>();
-    const updatePies = () => {
-      if (!map.isStyleLoaded()) return;
-      const feats = map.queryRenderedFeatures({ layers: ["clusters-bg"] });
-      const visible = new Set<number>();
-      for (const f of feats) {
-        const props: any = f.properties || {};
-        const id = props.cluster_id as number | undefined;
-        if (id == null) continue;
-        visible.add(id);
-        const key = `${props.home || 0}-${props.work || 0}-${props.education || 0}-${props.leisure || 0}`;
-        let m = markers.get(id) as (mapboxgl.Marker & { _key?: string }) | undefined;
-        const coords = (f.geometry as any).coordinates as [number, number];
-        if (!m) {
-          const el = drawPie({
-            home: Number(props.home || 0),
-            work: Number(props.work || 0),
-            education: Number(props.education || 0),
-            leisure: Number(props.leisure || 0)
-          }, 48);
-          el.style.width = "48px"; el.style.height = "48px";
-          const created = new mapboxgl.Marker({ element: el, anchor: "center" }) as any;
-          (created as any)._key = key;
-          created.setLngLat(coords).addTo(map);
-          markers.set(id, created);
-        } else {
-          const existing = m; if (!existing) continue;
-          if ((existing as any)._key !== key) {
-            const el = drawPie({
-              home: Number(props.home || 0),
-              work: Number(props.work || 0),
-              education: Number(props.education || 0),
-              leisure: Number(props.leisure || 0)
-            }, 48);
-            el.style.width = "48px"; el.style.height = "48px";
-            const parent = existing.getElement().parentNode as HTMLElement | null;
-            if (parent) parent.replaceChild(el, existing.getElement());
-            (existing as any)._key = key;
+      // Add arrondissement hover interactions
+      const popup = new mapboxgl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        offset: 10
+      });
+      popupRef.current = popup;
+
+      map.on("mousemove", arrFillId, (e) => {
+        if (e.features && e.features.length > 0) {
+          map.getCanvas().style.cursor = "pointer";
+          const feature = e.features[0];
+          const props: any = feature.properties || {};
+
+          // Update hover state
+          if (hoveredArrondissementIdRef.current !== null) {
+            map.setFeatureState(
+              { source: "arrondissements", id: hoveredArrondissementIdRef.current },
+              { hover: false }
+            );
           }
-          existing.setLngLat(coords);
+          const featureId = feature.id ?? null;
+          if (featureId !== null) {
+            hoveredArrondissementIdRef.current = featureId;
+            map.setFeatureState(
+              { source: "arrondissements", id: featureId },
+              { hover: true }
+            );
+          }
+
+          // Store props and location for later updates
+          hoveredArrondissementPropsRef.current = props;
+          hoveredArrondissementLngLatRef.current = e.lngLat;
+
+          // Generate and display popup using current filter values
+          const html = generatePopupHTML(props, currentFiltersRef.current.minutes, currentFiltersRef.current.ageBand);
+          popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
         }
+      });
+
+      map.on("mouseleave", arrFillId, () => {
+        map.getCanvas().style.cursor = "";
+        popup.remove();
+
+        // Clear hover state
+        if (hoveredArrondissementIdRef.current !== null) {
+          map.setFeatureState(
+            { source: "arrondissements", id: hoveredArrondissementIdRef.current },
+            { hover: false }
+          );
+          hoveredArrondissementIdRef.current = null;
+          hoveredArrondissementPropsRef.current = null;
+          hoveredArrondissementLngLatRef.current = null;
+        }
+      });
+
+      // Helper function to transform draw feature to DrawnZone
+      const featureToDrawnZone = (feature: any): DrawnZone => ({
+        id: feature.id,
+        type: feature.geometry.type,
+        geometry: feature.geometry,
+        properties: feature.properties || {}
+      });
+
+      // Helper function to update trash button state
+      const updateTrashButtonState = (hasSelection: boolean) => {
+        const trashButton = document.querySelector('.mapbox-gl-draw_trash');
+        if (trashButton) {
+          if (hasSelection) {
+            trashButton.removeAttribute('disabled');
+            (trashButton as HTMLElement).style.opacity = '1';
+            (trashButton as HTMLElement).style.cursor = 'pointer';
+          } else {
+            trashButton.setAttribute('disabled', 'true');
+            (trashButton as HTMLElement).style.opacity = '0.3';
+            (trashButton as HTMLElement).style.cursor = 'not-allowed';
+          }
+        }
+      };
+
+      // Helper function to create custom draw controls container
+      const createDrawControlsContainer = (): HTMLDivElement => {
+        const container = document.createElement('div');
+        container.className = 'mapboxgl-ctrl-top-center';
+        container.style.position = 'absolute';
+        container.style.top = '10px';
+        container.style.left = '50%';
+        container.style.transform = 'translateX(-50%)';
+        container.style.zIndex = '1';
+        container.style.display = 'flex';
+        container.style.alignItems = 'center';
+        container.style.gap = '8px';
+        container.style.background = 'white';
+        container.style.padding = '6px 12px';
+        container.style.borderRadius = '4px';
+        container.style.boxShadow = '0 0 0 2px rgba(0,0,0,0.1)';
+
+        const label = document.createElement('span');
+        label.textContent = 'Draw a zone:';
+        label.style.fontSize = '14px';
+        label.style.fontWeight = '500';
+        label.style.color = '#374151';
+        label.style.fontFamily = 'system-ui, sans-serif';
+        container.appendChild(label);
+
+        return container;
+      };
+
+      // Initialize Mapbox Draw for zone drawing
+      const draw = new MapboxDraw({
+        displayControlsDefault: false,
+        controls: {
+          polygon: true,
+          trash: true
+        },
+        defaultMode: "simple_select",
+        boxSelect: false,
+        touchEnabled: true,
+        clickBuffer: 2,
+        touchBuffer: 25,
+        userProperties: true
+      });
+
+      // Create and add custom controls container
+      const drawControlsContainer = createDrawControlsContainer();
+      mapContainer.current?.appendChild(drawControlsContainer);
+
+      map.addControl(draw, 'top-left');
+      // Move the draw control to our custom container
+      const drawControlElement = document.querySelector('.mapboxgl-ctrl-top-left .mapboxgl-ctrl-group');
+      if (drawControlElement) {
+        drawControlsContainer.appendChild(drawControlElement);
       }
-      // remove markers no longer visible
-      for (const [id, m] of markers) {
-        if (!visible.has(id)) { m.remove(); markers.delete(id); }
-      }
-    };
-    // remove pie marker plumbing (we'll re-introduce later differently)
-    const managePies = () => {};
+
+      drawRef.current = draw;
+
+      // Initialize trash button as disabled
+      setTimeout(() => {
+        updateTrashButtonState(false);
+      }, 100);
+
+      // Handle zone creation
+      map.on("draw.create", (e: any) => {
+        const features = e.features;
+        if (features && features.length > 0) {
+          onZoneSelect?.(featureToDrawnZone(features[0]));
+          updateTrashButtonState(true);
+        }
+      });
+
+      // Handle zone selection change
+      map.on("draw.selectionchange", (e: any) => {
+        const features = e.features;
+        if (features && features.length > 0) {
+          onZoneSelect?.(featureToDrawnZone(features[0]));
+          updateTrashButtonState(true);
+        } else {
+          onZoneSelect?.(null);
+          updateTrashButtonState(false);
+        }
+      });
+
+      // Handle zone deletion
+      map.on("draw.delete", () => {
+        onZoneSelect?.(null);
+        updateTrashButtonState(false);
+      });
+
+      // Handle zone update (dragged/edited)
+      map.on("draw.update", (e: any) => {
+        const features = e.features;
+        if (features && features.length > 0) {
+          onZoneSelect?.(featureToDrawnZone(features[0]));
+        }
+      });
+    });
 
     return () => { map.remove(); };
   }, [accessToken]);
-
-  // helpers moved to utils
-
-  function drawPie(counts: { home: number; work: number; education: number; leisure: number }, size: number): HTMLCanvasElement {
-    const total = Math.max(1, counts.home + counts.work + counts.education + counts.leisure);
-    const canvas = document.createElement("canvas");
-    canvas.width = size; canvas.height = size;
-    const ctx = canvas.getContext("2d")!;
-    const colors: [keyof typeof counts, string][] = [["home", "#3b82f6"], ["work", "#22c55e"], ["education", "#facc15"], ["leisure", "#fb923c"]];
-    let start = -Math.PI / 2;
-    for (const [k, color] of colors) {
-      const val = counts[k];
-      const angle = (val / total) * Math.PI * 2;
-      ctx.beginPath();
-      ctx.moveTo(size / 2, size / 2);
-      ctx.arc(size / 2, size / 2, size / 2, start, start + angle);
-      ctx.closePath();
-      ctx.fillStyle = color;
-      ctx.fill();
-      start += angle;
-    }
-    // white stroke
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    return canvas;
-  }
 
   useEffect(() => {
     const map = mapRef.current;
@@ -520,6 +688,19 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
       }
     }
   }, [arrondissementsVisible, populationVisible, ageBand, minutes, showActivityChain, activityChainData]);
+
+  // Update popup when filters change
+  useEffect(() => {
+    // Update the ref with current filter values
+    currentFiltersRef.current = { minutes, ageBand };
+
+    // Update popup if it's currently open
+    const popup = popupRef.current;
+    if (popup && popup.isOpen() && hoveredArrondissementPropsRef.current && hoveredArrondissementLngLatRef.current) {
+      const html = generatePopupHTML(hoveredArrondissementPropsRef.current, minutes, ageBand);
+      popup.setHTML(html);
+    }
+  }, [minutes, ageBand]);
 
   // no pie toggle side-effects now
 
