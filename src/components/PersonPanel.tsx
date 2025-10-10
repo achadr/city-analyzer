@@ -3,7 +3,7 @@ import { Person, ActivityChainData, ActivityChainToggleCallback } from "../types
 import { PANEL_STYLES, BUTTON_STYLES, SPACING, FONT_SIZES, COLORS } from "../styles";
 import { TIMELINE_ICON_SIZE, CHART_CONFIG, ACTIVITY_COLORS } from "../constants";
 import ActivityIcon from "./icons/ActivityIcon";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { calculateZoneMetrics } from "../maps/utils/zoneMetrics";
 
 type DrawnZone = {
@@ -24,6 +24,8 @@ type Props = {
 export default function PersonPanel({ person, onClose, onActivityChainToggle, selectedZone, populationData = [] }: Props): React.JSX.Element | null {
   const [showActivityChain, setShowActivityChain] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<"person" | "zone">("person");
+  const prevPersonRef = React.useRef<Person | null>(null);
+  const prevZoneRef = React.useRef<DrawnZone | null | undefined>(undefined);
 
   // Calculate zone metrics when a zone is selected
   const zoneMetrics = useMemo(() => {
@@ -36,12 +38,35 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle, se
   // Show both person and zone: display tabs
   const showTabs = person && selectedZone && zoneMetrics;
 
-  // Auto-switch to appropriate tab when only one is available
+  // Auto-switch to appropriate tab based on latest user interaction
   React.useEffect(() => {
-    if (person && !selectedZone) {
+    // Check if person changed (new selection)
+    const personChanged = person !== prevPersonRef.current;
+    // Check if zone changed (new selection)
+    const zoneChanged = selectedZone !== prevZoneRef.current;
+
+    if (personChanged && person) {
+      // User just selected a person
       setActiveTab("person");
-    } else if (!person && selectedZone) {
+      prevPersonRef.current = person;
+    } else if (zoneChanged && selectedZone) {
+      // User just drew/selected a zone
       setActiveTab("zone");
+      prevZoneRef.current = selectedZone;
+    } else if (person && !selectedZone) {
+      // Only person is available
+      setActiveTab("person");
+      prevPersonRef.current = person;
+      prevZoneRef.current = selectedZone;
+    } else if (!person && selectedZone) {
+      // Only zone is available
+      setActiveTab("zone");
+      prevPersonRef.current = person;
+      prevZoneRef.current = selectedZone;
+    } else {
+      // Update refs even if no tab change
+      prevPersonRef.current = person;
+      prevZoneRef.current = selectedZone;
     }
   }, [person, selectedZone]);
 
@@ -178,7 +203,7 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle, se
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={(entry) => `${entry.type}: ${entry.count}`}
+                    label={(entry: any) => `${entry.type}: ${entry.count}`}
                     outerRadius={CHART_CONFIG.pieChartRadius}
                     fill="#8884d8"
                     dataKey="count"
@@ -191,7 +216,7 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle, se
                       return <Cell key={`cell-${index}`} fill={color} />;
                     })}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip formatter={(value: any, name: any, props: any) => [`${value} activities`, props.payload.type]} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -341,8 +366,8 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle, se
                     data={zoneMetrics.activityTypes}
                     cx="50%"
                     cy="50%"
-                    labelLine={false}
-                    label={(entry) => `${entry.type}: ${entry.count}`}
+                    labelLine={true}
+                    label={(entry: any) => `${entry.type}: ${(entry.percent * 100).toFixed(0)}%`}
                     outerRadius={CHART_CONFIG.pieChartRadius}
                     fill="#8884d8"
                     dataKey="count"
@@ -355,14 +380,14 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle, se
                       return <Cell key={`cell-${index}`} fill={color} />;
                     })}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip formatter={(value: any, name: any, props: any) => [`${value} activities`, props.payload.type]} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
           </div>
         ) : !person ? (
           // No selection
-          <div style={{ color: COLORS.gray[500] }}>Click an individual point to view details.</div>
+          <div style={{ color: COLORS.gray[500] }}>Click an individual point or draw a zone to view details.</div>
         ) : (
           // Only person is active
           <div>

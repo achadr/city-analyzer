@@ -18,7 +18,9 @@ export type Person = {
   activities: Activity[];
 };
 
-export type AgeBand = "all" | "0-17" | "18-25" | "26-30" | "31-64" | "65+";
+export type AgeBand = "all" | "0-17" | "18-25" | "26-34" | "35-64" | "65+";
+export type SexFilter = "all" | "male" | "female";
+export type ActivityFilter = "all" | "home" | "work" | "school" | "leisure";
 
 export type LayersState = {
   arrondissementsVisible: boolean;
@@ -27,6 +29,8 @@ export type LayersState = {
 
 export type FiltersState = {
   ageBand: AgeBand;
+  sex: SexFilter;
+  activity: ActivityFilter;
 };
 
 export type ActivityChainData = {

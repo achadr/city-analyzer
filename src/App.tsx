@@ -23,7 +23,7 @@ export default function App(): React.JSX.Element {
   }
   const [activeTab, setActiveTab] = useState<"layers" | "filters">("layers");
   const [layers, setLayers] = useState<LayersState>({ arrondissementsVisible: true, populationVisible: true });
-  const [filters, setFilters] = useState<FiltersState>({ ageBand: "all" });
+  const [filters, setFilters] = useState<FiltersState>({ ageBand: "all", sex: "all", activity: "all" });
   const [minutes, setMinutes] = useState(DEFAULT_TIME);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [showActivityChain, setShowActivityChain] = useState(false);
@@ -74,6 +74,8 @@ export default function App(): React.JSX.Element {
         arrondissementsVisible={layers.arrondissementsVisible}
         populationVisible={layers.populationVisible}
         ageBand={filters.ageBand}
+        sex={filters.sex}
+        activity={filters.activity}
         minutes={minutes}
         onPersonSelect={handlePersonSelect}
         showActivityChain={showActivityChain}

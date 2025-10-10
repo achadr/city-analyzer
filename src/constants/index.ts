@@ -58,8 +58,8 @@ export const TIMELINE_ICON_SIZE = 28;
 export const CHART_CONFIG = {
   tickFontSize: 10,
   defaultHeight: 200,
-  pieChartHeight: 180,
+  pieChartHeight: 200,
   pieChartRadius: 60,
-  neutralColor: "#8b5cf6",
+  neutralColor: "#a294f7",
   keyHours: [8, 12, 15, 18, 21]
 } as const;

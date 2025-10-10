@@ -4,8 +4,8 @@ import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 import type { FilterSpecification } from "mapbox-gl";
 import { toMinutes, filterByTime } from "./utils/time";
-import { makeAgeFilter, filterByAgeBand } from "./utils/age";
-import { Person, ActivityChainData, PersonSelectionCallback, ActivityChainToggleCallback, AgeBand } from "../types";
+import { makeAgeFilter, filterByAgeBand, makeSexFilter, filterBySex, makeActivityFilter, filterByActivity } from "./utils/age";
+import { Person, ActivityChainData, PersonSelectionCallback, ActivityChainToggleCallback, AgeBand, SexFilter, ActivityFilter } from "../types";
 import {
   POINT_RADIUS,
   POINT_STROKE_WIDTH,
@@ -33,6 +33,8 @@ type MapViewProps = {
   arrondissementsVisible?: boolean;
   populationVisible?: boolean;
   ageBand?: AgeBand;
+  sex?: SexFilter;
+  activity?: ActivityFilter;
   minutes?: number; // 0..1439
   onPersonSelect?: PersonSelectionCallback;
   showActivityChain?: boolean;
@@ -40,7 +42,7 @@ type MapViewProps = {
   onZoneSelect?: ZoneSelectionCallback;
 };
 
-export default function MapView({ accessToken, arrondissementsVisible = true, populationVisible = true, ageBand = "all", minutes = 480, onPersonSelect, showActivityChain = false, activityChainData = null, onZoneSelect }: MapViewProps): React.JSX.Element {
+export default function MapView({ accessToken, arrondissementsVisible = true, populationVisible = true, ageBand = "all", sex = "all", activity = "all", minutes = 480, onPersonSelect, showActivityChain = false, activityChainData = null, onZoneSelect }: MapViewProps): React.JSX.Element {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const allFeaturesRef = useRef<GeoJSON.FeatureCollection | null>(null);
@@ -55,7 +57,7 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
   const hoveredArrondissementPropsRef = useRef<any>(null);
   const hoveredArrondissementLngLatRef = useRef<mapboxgl.LngLat | null>(null);
   const popupRef = useRef<mapboxgl.Popup | null>(null);
-  const currentFiltersRef = useRef({ minutes, ageBand });
+  const currentFiltersRef = useRef({ minutes, ageBand, sex, activity });
   const drawRef = useRef<MapboxDraw | null>(null);
 
   // Function to create activity chain features
@@ -118,13 +120,13 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
   };
 
   // Function to generate popup HTML for an arrondissement
-  const generatePopupHTML = (props: any, currentMinutes: number, currentAgeBand: AgeBand) => {
+  const generatePopupHTML = (props: any, currentMinutes: number, currentAgeBand: AgeBand, currentSex: SexFilter, currentActivity: ActivityFilter) => {
     const fc = allFeaturesRef.current;
     let popStats = { total: 0, home: 0, work: 0, education: 0, leisure: 0 };
 
     if (fc) {
       const arrName = props.l_ar;
-      const subset = filterByTime(filterByAgeBand(fc, currentAgeBand), currentMinutes);
+      const subset = filterByTime(filterByActivity(filterBySex(filterByAgeBand(fc, currentAgeBand), currentSex), currentActivity), currentMinutes);
       subset.features.forEach((f: any) => {
         if (f.properties.zone === arrName) {
           popStats.total++;
@@ -341,7 +343,7 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
           const features = [] as any[];
           const mapById = new Map<number, any>();
           for (const person of people) {
-            const { id, age, activities = [] } = person;
+            const { id, age, sex, activities = [] } = person;
             mapById.set(id, person);
             for (const act of activities) {
               const { coordinates, name, zone, transport, startTime, endTime } = act;
@@ -352,7 +354,7 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
               features.push({
                 type: "Feature",
                 geometry: { type: "Point", coordinates: [coordinates.lng, coordinates.lat] },
-                properties: { id, age, activity: name, zone, transport, start, end }
+                properties: { id, age, sex, activity: name, activityName: name, zone, transport, start, end }
               });
             }
           }
@@ -360,11 +362,12 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
           allFeaturesRef.current = fc;
           peopleByIdRef.current = mapById;
           // Apply initial subset according to current filters so clusters reflect it
-          const subset = filterByTime(filterByAgeBand(fc, ageBand), minutes);
+          const subset = filterByTime(filterByActivity(filterBySex(filterByAgeBand(fc, ageBand), sex), activity), minutes);
           (map.getSource("population") as mapboxgl.GeoJSONSource).setData(subset);
           // no pie markers at this stage
           // Initial filter on unclustered layer (keeps parity with cluster subset)
-          map.setFilter(unclusteredId, makeAgeFilter(ageBand));
+          const combinedFilters = ["all", makeAgeFilter(ageBand), makeSexFilter(sex), makeActivityFilter(activity)] as unknown as FilterSpecification;
+          map.setFilter(unclusteredId, combinedFilters);
           map.setLayoutProperty(arrFillId, "visibility", arrondissementsVisible ? "visible" : "none");
           map.setLayoutProperty("arr-outline", "visibility", arrondissementsVisible ? "visible" : "none");
           [clustersBgId, clusterCountId, unclusteredId].forEach((id) => map.setLayoutProperty(id, "visibility", populationVisible ? "visible" : "none"));
@@ -457,7 +460,7 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
           hoveredArrondissementLngLatRef.current = e.lngLat;
 
           // Generate and display popup using current filter values
-          const html = generatePopupHTML(props, currentFiltersRef.current.minutes, currentFiltersRef.current.ageBand);
+          const html = generatePopupHTML(props, currentFiltersRef.current.minutes, currentFiltersRef.current.ageBand, currentFiltersRef.current.sex, currentFiltersRef.current.activity);
           popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
         }
       });
@@ -631,13 +634,13 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
         (map.getSource("activity-chain-lines") as mapboxgl.GeoJSONSource).setData(linesData);
       } else {
         // Show normal filtered data
-        subset = filterByTime(filterByAgeBand(fc, ageBand), minutes);
+        subset = filterByTime(filterByActivity(filterBySex(filterByAgeBand(fc, ageBand), sex), activity), minutes);
         // Clear connecting lines
         (map.getSource("activity-chain-lines") as mapboxgl.GeoJSONSource).setData({ type: "FeatureCollection", features: [] });
       }
       (map.getSource("population") as mapboxgl.GeoJSONSource).setData(subset);
     }
-    
+
     if (showActivityChain && activityChainData) {
       // Remove age filter when showing activity chain
       map.setFilter("unclustered-point", null);
@@ -658,7 +661,8 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
         map.getCanvas().style.cursor = "";
       }
     } else {
-      map.setFilter("unclustered-point", makeAgeFilter(ageBand));
+      const combinedFilters = ["all", makeAgeFilter(ageBand), makeSexFilter(sex), makeActivityFilter(activity)] as unknown as FilterSpecification;
+      map.setFilter("unclustered-point", combinedFilters);
       // Show clusters when not in activity chain mode
       setVis("clusters-bg", populationVisible);
       setVis("cluster-count", populationVisible);
@@ -687,20 +691,20 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
         map.on("click", unclusteredId, handlers.handleClick);
       }
     }
-  }, [arrondissementsVisible, populationVisible, ageBand, minutes, showActivityChain, activityChainData]);
+  }, [arrondissementsVisible, populationVisible, ageBand, sex, activity, minutes, showActivityChain, activityChainData]);
 
   // Update popup when filters change
   useEffect(() => {
     // Update the ref with current filter values
-    currentFiltersRef.current = { minutes, ageBand };
+    currentFiltersRef.current = { minutes, ageBand, sex, activity };
 
     // Update popup if it's currently open
     const popup = popupRef.current;
     if (popup && popup.isOpen() && hoveredArrondissementPropsRef.current && hoveredArrondissementLngLatRef.current) {
-      const html = generatePopupHTML(hoveredArrondissementPropsRef.current, minutes, ageBand);
+      const html = generatePopupHTML(hoveredArrondissementPropsRef.current, minutes, ageBand, sex, activity);
       popup.setHTML(html);
     }
-  }, [minutes, ageBand]);
+  }, [minutes, ageBand, sex, activity]);
 
   // no pie toggle side-effects now
 
