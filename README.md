@@ -4,6 +4,8 @@ Interactive map application for visualizing and analyzing population activity pa
 
 ![City Analyzer](https://img.shields.io/badge/React-19-61dafb?style=flat&logo=react) ![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6?style=flat&logo=typescript) ![Mapbox](https://img.shields.io/badge/Mapbox-GL_JS-000000?style=flat&logo=mapbox)
 
+![App Overview](docs/images/app-overview.png)
+
 ---
 
 ## 📋 Table of Contents
@@ -83,16 +85,7 @@ Interactive map application for visualizing and analyzing population activity pa
 
 ### 1. Layer Controls
 
-The **left panel** contains layer visibility toggles:
-
-```
-┌─────────────────┐
-│ Layers │ Filters│  ← Click tabs to switch
-├─────────────────┤
-│ ☑ Paris arrond. │  ← Toggle district boundaries
-│ ☑ Population    │  ← Toggle population points
-└─────────────────┘
-```
+The **left panel** contains layer visibility toggles and filtering options. Click the **Layers** tab to control what's visible on the map:
 
 **What you can do:**
 - Toggle Paris arrondissement boundaries on/off
@@ -103,39 +96,15 @@ The **left panel** contains layer visibility toggles:
 
 ### 2. Filtering Population
 
-Switch to the **Filters** tab in the left panel:
+Switch to the **Filters** tab in the left panel to filter the population data:
 
-```
-┌─────────────────┐
-│ Layers │ Filters│
-├─────────────────┤
-│ Age ▼           │
-│  ○ All ages     │
-│  ○ 0-17         │
-│  ○ 18-25        │
-│  ○ 26-34        │
-│  ○ 35-64        │
-│  ○ 65+          │
-│                 │
-│ Sex ▼           │
-│  ○ All          │
-│  ○ Male         │
-│  ○ Female       │
-│                 │
-│ Activity ▼      │
-│  ○ All          │
-│  ○ Home         │
-│  ○ Work         │
-│  ○ School       │
-│  ○ Leisure      │
-└─────────────────┘
-```
+![Filters Panel](docs/images/filters-panel.png)
 
 **How filtering works:**
-- **Age Filter**: Show only people in specific age groups
-- **Sex Filter**: Filter by gender
-- **Activity Filter**: Show only specific activity types (e.g., only "work" activities)
-- **Combined Filtering**: All filters work together (e.g., "show females aged 18-25 at leisure activities")
+- **Age Filter**: Show only people in specific age groups (0-17, 18-25, 26-34, 35-64, 65+)
+- **Sex Filter**: Filter by gender (All, Male, Female)
+- **Activity Filter**: Show only specific activity types (Home, Work, School, Leisure)
+- **Combined Filtering**: All filters work together simultaneously
 - Cluster counts update in real-time to reflect active filters
 
 **Example Use Cases:**
@@ -149,13 +118,7 @@ Switch to the **Filters** tab in the left panel:
 
 The **time slider** at the bottom filters activities by time of day:
 
-```
-┌────────────────────────────┐
-│ Time              09:30    │
-│ ●━━━━━━━●─────────────────│
-│ 00:00              23:45   │
-└────────────────────────────┘
-```
+![Time Slider](docs/images/time-slider.png)
 
 **How to use:**
 - Drag the slider to see activities at different times
@@ -177,28 +140,13 @@ The **time slider** at the bottom filters activities by time of day:
 2. Click on any blue point (person)
 3. The **right panel** appears with person details
 
-```
-┌────────────────────────────┐
-│ Person │ Zone        [×]   │  ← Close button
-├────────────────────────────┤
-│ Marie Dubois               │
-│ Age: 34 • Sex: female      │
-│                            │
-│ Current Activity           │
-│ 📍 Work                    │
-│ 🕐 08:00 - 17:00          │
-│ 🚇 public transport        │
-│                            │
-│ ┌────────────────────┐    │
-│ │ Show Activity Chain│    │  ← Toggle button
-│ └────────────────────┘    │
-└────────────────────────────┘
-```
+![Person Panel](docs/images/person-panel.png)
 
 **Information shown:**
 - Person's name, age, and sex
 - Current activity at the selected time
 - Activity location, duration, and transport method
+- Toggle button to show their complete activity chain
 
 ---
 
@@ -209,47 +157,12 @@ The **time slider** at the bottom filters activities by time of day:
 2. Click the **"Show Activity Chain"** toggle button
 3. The map shows the person's full daily journey
 
-```
-Map View:
-    🏠 Home
-    │ (blue line connecting activities)
-    ↓
-    🏢 Work
-    │
-    ↓
-    🎾 Leisure
-    │
-    ↓
-    🏠 Home
-```
-
-**Panel displays:**
-```
-┌────────────────────────────┐
-│ Daily Activity Chain       │
-├────────────────────────────┤
-│ 1. 🏠 Home                 │
-│    00:00 - 07:30          │
-│    🚶 walk                 │
-│                            │
-│ 2. 🏢 Work                 │
-│    08:00 - 17:00          │
-│    🚇 public transport     │
-│                            │
-│ 3. 🎾 Leisure              │
-│    18:00 - 20:00          │
-│    🚶 walk                 │
-│                            │
-│ 4. 🏠 Home                 │
-│    21:00 - 23:59          │
-│    🚇 public transport     │
-└────────────────────────────┘
-```
+![Activity Chain](docs/images/activity-chain.png)
 
 **What you see:**
 - Blue lines connecting activity locations in sequence
 - Numbered markers for each activity
-- Complete timeline of the person's day
+- Complete timeline of the person's day in the panel
 - Transport methods used between activities
 
 **To exit:** Click "Show Activity Chain" again or close the panel
@@ -260,53 +173,22 @@ Map View:
 
 **How to draw a zone:**
 
-1. **Find the drawing controls** on the map (top-left area):
-   ```
-   ┌──┐
-   │🖊 │ ← Polygon tool
-   └──┘
-   ```
+1. **Find the drawing controls** on the map:
+
+   ![Zone Drawing Tool](docs/images/draw-zone-tool.png)
 
 2. **Click the polygon tool** to activate drawing mode
 
 3. **Draw your zone:**
    - Click to place each corner point
    - Move your mouse to shape the polygon
-   - Double-click (or click the first point) to finish
+   - **Double-click** or **click on the first point** to finish and close the polygon
+
+   ![Zone Drawing](docs/images/zone-drawning.png)
 
 4. **The zone metrics panel appears automatically:**
 
-```
-┌────────────────────────────┐
-│ Person │ Zone        [×]   │
-├────────────────────────────┤
-│ Zone Metrics               │
-│                            │
-│ Total Activities: 1,804    │
-│ Unique Visitors: 342       │
-│                            │
-│ Activity Types             │
-│ ┌──────────────────────┐  │
-│ │     [Pie Chart]      │  │  ← Shows distribution
-│ │  Home: 54%           │  │    (hover for counts)
-│ │  Work: 11%           │  │
-│ │  School: 4%          │  │
-│ │  Leisure: 31%        │  │
-│ └──────────────────────┘  │
-│                            │
-│ Activities by Hour         │
-│ ┌──────────────────────┐  │
-│ │     [Bar Chart]      │  │  ← 24-hour distribution
-│ │      ▁▃▅█▇▅▃▁        │  │    (hover for exact count)
-│ └──────────────────────┘  │
-│                            │
-│ Age Distribution           │
-│ ┌──────────────────────┐  │
-│ │     [Bar Chart]      │  │  ← Age groups
-│ │   ▄█▇▅▃▂             │  │    (hover for count)
-│ └──────────────────────┘  │
-└────────────────────────────┘
-```
+   ![Zone Metrics](docs/images/zone-metrics.png)
 
 **Metrics Explained:**
 
@@ -414,6 +296,8 @@ city-analyzer/
 ├── data/
 │   ├── population.json      # Generated population data
 │   └── paris-arrondissements.geojson # District boundaries
+├── docs/
+│   └── images/              # Screenshots for documentation
 ├── public/                  # Static assets
 ├── CLAUDE.md               # Development workflow docs
 └── README.md               # This file
