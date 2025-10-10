@@ -404,13 +404,6 @@ Drawn polygon
 - **`src/types/index.ts`**: All TypeScript type definitions
 - **`CLAUDE.md`**: Detailed architecture documentation
 
-### Development Workflow
-
-See [CLAUDE.md](./CLAUDE.md) for:
-- Git workflow (feature branch per session)
-- Detailed architecture documentation
-- Code organization principles
-- Component responsibilities
 
 ---
 
@@ -432,4 +425,4 @@ For questions or suggestions, please open an issue on GitHub.
 
 ---
 
-**Built with ❤️ using React, TypeScript, and Mapbox GL JS**
+**Built with using React, TypeScript, and Mapbox GL JS**
