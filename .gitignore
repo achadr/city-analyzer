@@ -8,5 +8,5 @@ node_modules/
 dist/
 
 # Generated data (regenerated on build)
-data/population.json
+public/data/population.json
 

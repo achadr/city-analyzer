@@ -291,7 +291,7 @@ if (require.main === module) {
   // Default to 5000 people for production, can be overridden via CLI arg
   const numPeople = parseInt(process.argv[2]) || 5000;
   const population = generatePopulation(numPeople);
-  const outPath = path.resolve(__dirname, "../../data/population.json");
+  const outPath = path.resolve(__dirname, "../../public/data/population.json");
   fs.writeFileSync(outPath, JSON.stringify(population, null, 2));
   console.log(`Population generated: ${outPath} (${numPeople} people)`);
 }
