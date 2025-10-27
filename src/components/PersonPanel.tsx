@@ -19,9 +19,10 @@ type Props = {
   onActivityChainToggle?: ActivityChainToggleCallback;
   selectedZone?: DrawnZone | null;
   populationData?: Person[];
+  onTabChange?: (tab: "person" | "zone") => void;
 };
 
-export default function PersonPanel({ person, onClose, onActivityChainToggle, selectedZone, populationData = [] }: Props): React.JSX.Element | null {
+export default function PersonPanel({ person, onClose, onActivityChainToggle, selectedZone, populationData = [], onTabChange }: Props): React.JSX.Element | null {
   const [showActivityChain, setShowActivityChain] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<"person" | "zone">("person");
   const prevPersonRef = React.useRef<Person | null>(null);
@@ -48,19 +49,23 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle, se
     if (personChanged && person) {
       // User just selected a person
       setActiveTab("person");
+      onTabChange?.("person");
       prevPersonRef.current = person;
     } else if (zoneChanged && selectedZone) {
       // User just drew/selected a zone
       setActiveTab("zone");
+      onTabChange?.("zone");
       prevZoneRef.current = selectedZone;
     } else if (person && !selectedZone) {
       // Only person is available
       setActiveTab("person");
+      onTabChange?.("person");
       prevPersonRef.current = person;
       prevZoneRef.current = selectedZone;
     } else if (!person && selectedZone) {
       // Only zone is available
       setActiveTab("zone");
+      onTabChange?.("zone");
       prevPersonRef.current = person;
       prevZoneRef.current = selectedZone;
     } else {
@@ -68,7 +73,7 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle, se
       prevPersonRef.current = person;
       prevZoneRef.current = selectedZone;
     }
-  }, [person, selectedZone]);
+  }, [person, selectedZone, onTabChange]);
 
   function transportStyle(transport: string | undefined): { color: string; dashed: boolean; label: string } {
     const t = (transport || "").toLowerCase();
@@ -97,7 +102,10 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle, se
           // Show tabs when both person and zone are active
           <div style={{ display: "flex", gap: SPACING.xs, width: "100%" }}>
             <button
-              onClick={() => setActiveTab("person")}
+              onClick={() => {
+                setActiveTab("person");
+                onTabChange?.("person");
+              }}
               style={{
                 ...BUTTON_STYLES.secondary,
                 flex: 1,
@@ -111,7 +119,10 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle, se
               Person
             </button>
             <button
-              onClick={() => setActiveTab("zone")}
+              onClick={() => {
+                setActiveTab("zone");
+                onTabChange?.("zone");
+              }}
               style={{
                 ...BUTTON_STYLES.secondary,
                 flex: 1,

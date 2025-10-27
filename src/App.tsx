@@ -30,6 +30,7 @@ export default function App(): React.JSX.Element {
   const [activityChainData, setActivityChainData] = useState<ActivityChainData | null>(null);
   const [selectedZone, setSelectedZone] = useState<DrawnZone | null>(null);
   const [populationData, setPopulationData] = useState<Person[]>([]);
+  const [activePanelTab, setActivePanelTab] = useState<"person" | "zone" | null>(null);
 
   // Load population data
   useEffect(() => {
@@ -59,6 +60,10 @@ export default function App(): React.JSX.Element {
     // The PersonPanel will show tabs when both are active
   };
 
+  const handlePanelTabChange = (tab: "person" | "zone") => {
+    setActivePanelTab(tab);
+  };
+
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       <SidePanel
@@ -81,6 +86,9 @@ export default function App(): React.JSX.Element {
         showActivityChain={showActivityChain}
         activityChainData={activityChainData}
         onZoneSelect={handleZoneSelect}
+        activePanelTab={activePanelTab}
+        selectedPerson={selectedPerson}
+        selectedZone={selectedZone}
       />
       <PersonPanel
         person={selectedPerson}
@@ -89,10 +97,12 @@ export default function App(): React.JSX.Element {
           setShowActivityChain(false);
           setActivityChainData(null);
           setSelectedZone(null);
+          setActivePanelTab(null);
         }}
         onActivityChainToggle={handleActivityChainToggle}
         selectedZone={selectedZone}
         populationData={populationData}
+        onTabChange={handlePanelTabChange}
       />
       <TimeSlider minutes={minutes} onChange={setMinutes} />
     </div>

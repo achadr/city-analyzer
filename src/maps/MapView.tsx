@@ -40,9 +40,12 @@ type MapViewProps = {
   showActivityChain?: boolean;
   activityChainData?: ActivityChainData | null;
   onZoneSelect?: ZoneSelectionCallback;
+  activePanelTab?: "person" | "zone" | null;
+  selectedPerson?: Person | null;
+  selectedZone?: DrawnZone | null;
 };
 
-export default function MapView({ accessToken, arrondissementsVisible = true, populationVisible = true, ageBand = "all", sex = "all", activity = "all", minutes = 480, onPersonSelect, showActivityChain = false, activityChainData = null, onZoneSelect }: MapViewProps): React.JSX.Element {
+export default function MapView({ accessToken, arrondissementsVisible = true, populationVisible = true, ageBand = "all", sex = "all", activity = "all", minutes = 480, onPersonSelect, showActivityChain = false, activityChainData = null, onZoneSelect, activePanelTab = null, selectedPerson = null, selectedZone = null }: MapViewProps): React.JSX.Element {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const allFeaturesRef = useRef<GeoJSON.FeatureCollection | null>(null);
@@ -59,6 +62,8 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
   const popupRef = useRef<mapboxgl.Popup | null>(null);
   const currentFiltersRef = useRef({ minutes, ageBand, sex, activity });
   const drawRef = useRef<MapboxDraw | null>(null);
+  const previousViewportRef = useRef<{ center: mapboxgl.LngLat; zoom: number } | null>(null);
+  const clickedActivityLocationRef = useRef<{ lng: number; lat: number } | null>(null);
 
   // Function to create activity chain features
   const createActivityChainFeatures = (activityChainData: any): GeoJSON.FeatureCollection => {
@@ -387,12 +392,20 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
           if (id == null) {
             onPersonSelect && onPersonSelect(null);
             selectedPointRef.current = null;
+            clickedActivityLocationRef.current = null;
             return;
           }
           // Store the selected point for later restoration
           selectedPointRef.current = f;
-          // Update highlight source with this point geometry
+
+          // Store the clicked activity location coordinates
           const geom = f.geometry as GeoJSON.Point;
+          clickedActivityLocationRef.current = {
+            lng: geom.coordinates[0],
+            lat: geom.coordinates[1]
+          };
+
+          // Update highlight source with this point geometry
           const highlightFc: GeoJSON.FeatureCollection = {
             type: "FeatureCollection",
             features: [
@@ -404,12 +417,13 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
             ]
           } as any;
           (map.getSource("selected-point") as mapboxgl.GeoJSONSource).setData(highlightFc);
-          
+
           const person = peopleByIdRef.current?.get(id) || null;
           onPersonSelect && onPersonSelect(person);
         } catch (err) {
           onPersonSelect && onPersonSelect(null);
           selectedPointRef.current = null;
+          clickedActivityLocationRef.current = null;
         }
       };
 
@@ -478,6 +492,52 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
           hoveredArrondissementIdRef.current = null;
           hoveredArrondissementPropsRef.current = null;
           hoveredArrondissementLngLatRef.current = null;
+        }
+      });
+
+      // Click handler to zoom into arrondissement
+      map.on("click", arrFillId, (e) => {
+        if (e.features && e.features.length > 0) {
+          // Prevent event propagation to avoid multiple triggers
+          e.preventDefault();
+
+          const feature = e.features[0];
+
+          // Get the geometry of the clicked arrondissement
+          if (feature.geometry && feature.geometry.type === "Polygon") {
+            const coordinates = (feature.geometry as any).coordinates[0];
+
+            // Calculate bounds from coordinates
+            const bounds = coordinates.reduce(
+              (bounds: mapboxgl.LngLatBounds, coord: number[]) => {
+                return bounds.extend(coord as [number, number]);
+              },
+              new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+            );
+
+            // Zoom to the bounds with padding and fixed zoom level to see all individual points
+            map.fitBounds(bounds, {
+              padding: { top: 80, bottom: 80, left: 80, right: 80 },
+              zoom: 14.5, // Fixed zoom level to ensure individual points are visible with more detail
+              duration: 1000 // Smooth animation duration in ms
+            });
+          } else if (feature.geometry && feature.geometry.type === "MultiPolygon") {
+            // Handle MultiPolygon if any arrondissement uses it
+            const allCoordinates = (feature.geometry as any).coordinates.flat(2);
+
+            const bounds = allCoordinates.reduce(
+              (bounds: mapboxgl.LngLatBounds, coord: number[]) => {
+                return bounds.extend(coord as [number, number]);
+              },
+              new mapboxgl.LngLatBounds(allCoordinates[0], allCoordinates[0])
+            );
+
+            map.fitBounds(bounds, {
+              padding: { top: 80, bottom: 80, left: 80, right: 80 },
+              zoom: 14.5,
+              duration: 1000
+            });
+          }
         }
       });
 
@@ -600,6 +660,27 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
           onZoneSelect?.(featureToDrawnZone(features[0]));
         }
       });
+
+      // Auto-hide arrondissements at high zoom levels to reduce visual clutter
+      const ARRONDISSEMENT_HIDE_ZOOM = 13; // Hide zones when zoomed in to see individual points
+
+      const updateArrondissementVisibility = () => {
+        const currentZoom = map.getZoom();
+        const shouldHideByZoom = currentZoom >= ARRONDISSEMENT_HIDE_ZOOM;
+
+        // Only hide/show if layers exist
+        if (map.getLayer("arr-fill") && map.getLayer("arr-outline")) {
+          // Hide if zoom is high OR user toggled off, otherwise show
+          const visibility = shouldHideByZoom ? "none" : "visible";
+          map.setLayoutProperty("arr-fill", "visibility", visibility);
+          map.setLayoutProperty("arr-outline", "visibility", visibility);
+        }
+      };
+
+      map.on("zoom", updateArrondissementVisibility);
+
+      // Initial call to set correct visibility on load
+      updateArrondissementVisibility();
     });
 
     return () => { map.remove(); };
@@ -612,8 +693,16 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
       if (!map.getLayer(id)) return;
       map.setLayoutProperty(id, "visibility", vis ? "visible" : "none");
     };
-    setVis("arr-outline", arrondissementsVisible);
-    setVis("arr-fill", arrondissementsVisible);
+
+    // Auto-hide arrondissements at high zoom levels (same threshold as in map load)
+    const ARRONDISSEMENT_HIDE_ZOOM = 13;
+    const currentZoom = map.getZoom();
+    const shouldHideByZoom = currentZoom >= ARRONDISSEMENT_HIDE_ZOOM;
+
+    // Hide if zoomed in, otherwise respect user's toggle
+    const showArrondissements = !shouldHideByZoom && arrondissementsVisible;
+    setVis("arr-outline", showArrondissements);
+    setVis("arr-fill", showArrondissements);
     // Show simple circles only when population is visible and pie mode is off
     // Keep the layer present when pie mode is ON (opacity 0) so we can query positions
     setVis("clusters-bg", populationVisible);
@@ -705,6 +794,121 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
       popup.setHTML(html);
     }
   }, [minutes, ageBand, sex, activity]);
+
+  // Auto-zoom to fit all activity chain points when activity chain is shown/hidden
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (showActivityChain && activityChainData) {
+      // Save current viewport before zooming to activity chain
+      previousViewportRef.current = {
+        center: map.getCenter(),
+        zoom: map.getZoom()
+      };
+
+      // Extract all coordinates from activities
+      const coordinates = activityChainData.activities.map((activity: any) => [
+        activity.coordinates.lng,
+        activity.coordinates.lat
+      ]) as [number, number][];
+
+      // Need at least one coordinate
+      if (coordinates.length === 0) return;
+
+      // Calculate bounds from all activity coordinates
+      const bounds = coordinates.reduce(
+        (bounds, coord) => bounds.extend(coord),
+        new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+      );
+
+      // Zoom to fit all activity points with padding
+      map.fitBounds(bounds, {
+        padding: { top: 100, bottom: 100, left: 100, right: 100 },
+        maxZoom: 15, // Don't zoom in too much if activities are close together
+        duration: 1000
+      });
+    } else if (!showActivityChain && previousViewportRef.current) {
+      // Restore previous viewport when hiding activity chain
+      map.flyTo({
+        center: previousViewportRef.current.center,
+        zoom: previousViewportRef.current.zoom,
+        duration: 1000
+      });
+
+      // Clear the saved viewport
+      previousViewportRef.current = null;
+    }
+  }, [showActivityChain, activityChainData]);
+
+  // Center map when switching between Person and Zone tabs
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !activePanelTab) return;
+
+    if (activePanelTab === "person" && selectedPerson) {
+      if (showActivityChain && activityChainData) {
+        // Activity chain is active: fit bounds to show all activities
+        const coordinates = selectedPerson.activities.map((activity: any) => [
+          activity.coordinates.lng,
+          activity.coordinates.lat
+        ]) as [number, number][];
+
+        if (coordinates.length === 0) return;
+
+        const bounds = coordinates.reduce(
+          (bounds, coord) => bounds.extend(coord),
+          new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+        );
+
+        map.fitBounds(bounds, {
+          padding: { top: 100, bottom: 100, left: 100, right: 100 },
+          maxZoom: 15,
+          duration: 1000
+        });
+      } else {
+        // Activity chain is NOT active: center on the clicked activity location
+        const clickedLocation = clickedActivityLocationRef.current;
+        if (!clickedLocation) {
+          // Fallback to first activity if no clicked location stored
+          const firstActivity = selectedPerson.activities[0];
+          if (!firstActivity) return;
+          map.flyTo({
+            center: [firstActivity.coordinates.lng, firstActivity.coordinates.lat],
+            zoom: 14.5,
+            duration: 1000
+          });
+          return;
+        }
+
+        map.flyTo({
+          center: [clickedLocation.lng, clickedLocation.lat],
+          zoom: 14.5,
+          duration: 1000
+        });
+      }
+    } else if (activePanelTab === "zone" && selectedZone) {
+      // Center on zone
+      const geometry = selectedZone.geometry;
+
+      if (geometry.type === "Polygon") {
+        const coordinates = (geometry as any).coordinates[0];
+
+        const bounds = coordinates.reduce(
+          (bounds: mapboxgl.LngLatBounds, coord: number[]) => {
+            return bounds.extend(coord as [number, number]);
+          },
+          new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+        );
+
+        map.fitBounds(bounds, {
+          padding: { top: 100, bottom: 100, left: 100, right: 100 },
+          maxZoom: 15,
+          duration: 1000
+        });
+      }
+    }
+  }, [activePanelTab, selectedPerson, selectedZone, showActivityChain, activityChainData]);
 
   // no pie toggle side-effects now
 
