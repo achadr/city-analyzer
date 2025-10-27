@@ -8,16 +8,16 @@ type ActivityIconProps = {
 };
 
 const ICON_MAP: Record<string, string> = {
-  home: "/src/components/icons/home.svg",
-  work: "/src/components/icons/work.svg", 
-  school: "/src/components/icons/school.svg",
-  education: "/src/components/icons/school.svg",
-  leisure: "/src/components/icons/leisure.svg"
+  home: "/icons/home.svg",
+  work: "/icons/work.svg",
+  school: "/icons/school.svg",
+  education: "/icons/school.svg",
+  leisure: "/icons/leisure.svg"
 };
 
 export default function ActivityIcon({ name, size = ICON_SIZE, style }: ActivityIconProps): React.JSX.Element {
   const key = name.toLowerCase();
-  const iconPath = ICON_MAP[key] || "/src/components/icons/default.svg";
+  const iconPath = ICON_MAP[key] || "/icons/default.svg";
   
   const iconStyle: React.CSSProperties = {
     width: size,
