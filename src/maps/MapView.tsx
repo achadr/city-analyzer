@@ -66,6 +66,7 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
   const clickedActivityLocationRef = useRef<{ lng: number; lat: number } | null>(null);
   const currentZoneIdRef = useRef<string | null>(null);
   const isDrawingModeRef = useRef<boolean>(false);
+  const keyboardHandlerRef = useRef<((e: KeyboardEvent) => void) | null>(null);
 
   // Function to create activity chain features
   const createActivityChainFeatures = (activityChainData: any): GeoJSON.FeatureCollection => {
@@ -610,6 +611,78 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
         label.style.fontFamily = 'system-ui, sans-serif';
         container.appendChild(label);
 
+        // Create help tooltip
+        const tooltipWrapper = document.createElement('div');
+        tooltipWrapper.style.position = 'relative';
+        tooltipWrapper.style.display = 'inline-block';
+
+        const helpButton = document.createElement('button');
+        helpButton.textContent = '?';
+        helpButton.setAttribute('type', 'button');
+        helpButton.setAttribute('aria-label', 'How to draw a zone');
+        helpButton.style.width = '18px';
+        helpButton.style.height = '18px';
+        helpButton.style.borderRadius = '50%';
+        helpButton.style.border = '1.5px solid #666';
+        helpButton.style.background = 'white';
+        helpButton.style.color = '#666';
+        helpButton.style.fontSize = '12px';
+        helpButton.style.fontWeight = 'bold';
+        helpButton.style.cursor = 'help';
+        helpButton.style.display = 'flex';
+        helpButton.style.alignItems = 'center';
+        helpButton.style.justifyContent = 'center';
+        helpButton.style.padding = '0';
+
+        const tooltip = document.createElement('div');
+        tooltip.style.position = 'absolute';
+        tooltip.style.left = '28px';
+        tooltip.style.top = '-8px';
+        tooltip.style.background = 'white';
+        tooltip.style.border = '1px solid #ddd';
+        tooltip.style.borderRadius = '8px';
+        tooltip.style.padding = '12px 16px';
+        tooltip.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+        tooltip.style.zIndex = '10000';
+        tooltip.style.width = '280px';
+        tooltip.style.fontSize = '13px';
+        tooltip.style.lineHeight = '1.6';
+        tooltip.style.pointerEvents = 'none';
+        tooltip.style.display = 'none';
+        tooltip.style.fontFamily = 'system-ui, sans-serif';
+
+        tooltip.innerHTML = `
+          <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">
+            How to draw a zone:
+          </div>
+          <ol style="margin: 0; padding-left: 20px;">
+            <li style="margin-bottom: 6px;">
+              Click the <strong>polygon tool</strong> (or press <kbd style="padding: 2px 6px; background: #f5f5f5; border: 1px solid #ccc; border-radius: 3px; font-size: 11px; font-family: monospace;">P</kbd>)
+            </li>
+            <li style="margin-bottom: 6px;">
+              Click points on the map to create corners
+            </li>
+            <li style="margin-bottom: 6px;">
+              Click the <strong>first point again</strong> or <strong>double-click</strong> to close
+            </li>
+          </ol>
+          <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; font-size: 12px; color: #666;">
+            💡 Points won't be clickable while drawing
+          </div>
+        `;
+
+        helpButton.addEventListener('mouseenter', () => {
+          tooltip.style.display = 'block';
+        });
+
+        helpButton.addEventListener('mouseleave', () => {
+          tooltip.style.display = 'none';
+        });
+
+        tooltipWrapper.appendChild(helpButton);
+        tooltipWrapper.appendChild(tooltip);
+        container.appendChild(tooltipWrapper);
+
         return container;
       };
 
@@ -640,6 +713,24 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
       }
 
       drawRef.current = draw;
+
+      // Add keyboard shortcut for polygon tool (P key)
+      const handleKeyPress = (e: KeyboardEvent) => {
+        // Ignore if user is typing in an input/textarea
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+          return;
+        }
+
+        // Press P to activate polygon drawing
+        if (e.key === 'p' || e.key === 'P') {
+          e.preventDefault();
+          draw.changeMode('draw_polygon');
+        }
+      };
+
+      keyboardHandlerRef.current = handleKeyPress;
+      document.addEventListener('keydown', handleKeyPress);
 
       // Initialize trash button as disabled
       setTimeout(() => {
@@ -719,7 +810,14 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
       updateArrondissementVisibility();
     });
 
-    return () => { map.remove(); };
+    return () => {
+      // Cleanup keyboard event listener
+      if (keyboardHandlerRef.current) {
+        document.removeEventListener('keydown', keyboardHandlerRef.current);
+      }
+
+      map.remove();
+    };
   }, [accessToken]);
 
   useEffect(() => {
