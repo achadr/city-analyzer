@@ -288,8 +288,10 @@ export function generatePopulation(numPeople: number): Person[] {
 }
 
 if (require.main === module) {
-  const population = generatePopulation(10000);
+  // Default to 5000 people for production, can be overridden via CLI arg
+  const numPeople = parseInt(process.argv[2]) || 5000;
+  const population = generatePopulation(numPeople);
   const outPath = path.resolve(__dirname, "../../data/population.json");
   fs.writeFileSync(outPath, JSON.stringify(population, null, 2));
-  console.log(`Population generated: ${outPath}`);
+  console.log(`Population generated: ${outPath} (${numPeople} people)`);
 }
