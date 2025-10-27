@@ -64,6 +64,8 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
   const drawRef = useRef<MapboxDraw | null>(null);
   const previousViewportRef = useRef<{ center: mapboxgl.LngLat; zoom: number } | null>(null);
   const clickedActivityLocationRef = useRef<{ lng: number; lat: number } | null>(null);
+  const currentZoneIdRef = useRef<string | null>(null);
+  const isDrawingModeRef = useRef<boolean>(false);
 
   // Function to create activity chain features
   const createActivityChainFeatures = (activityChainData: any): GeoJSON.FeatureCollection => {
@@ -387,6 +389,11 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
       };
       const handleClick = (e: any) => {
         try {
+          // Ignore clicks on points when in drawing mode
+          if (isDrawingModeRef.current) {
+            return;
+          }
+
           const f = (e.features && e.features[0]) as any;
           const id = f?.properties?.id as number | undefined;
           if (id == null) {
@@ -420,6 +427,19 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
 
           const person = peopleByIdRef.current?.get(id) || null;
           onPersonSelect && onPersonSelect(person);
+
+          // Re-select the zone in draw control to keep it visually highlighted
+          if (currentZoneIdRef.current && drawRef.current) {
+            setTimeout(() => {
+              try {
+                drawRef.current?.changeMode('simple_select', {
+                  featureIds: [currentZoneIdRef.current as string]
+                });
+              } catch (err) {
+                // Silently fail if zone no longer exists
+              }
+            }, 0);
+          }
         } catch (err) {
           onPersonSelect && onPersonSelect(null);
           selectedPointRef.current = null;
@@ -626,11 +646,22 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
         updateTrashButtonState(false);
       }, 100);
 
+      // Track drawing mode changes
+      map.on("draw.modechange", (e: any) => {
+        const mode = e.mode;
+        // Set flag when entering drawing mode
+        isDrawingModeRef.current = mode === "draw_polygon";
+      });
+
       // Handle zone creation
       map.on("draw.create", (e: any) => {
+        // Exit drawing mode after zone is created
+        isDrawingModeRef.current = false;
         const features = e.features;
         if (features && features.length > 0) {
-          onZoneSelect?.(featureToDrawnZone(features[0]));
+          const zone = features[0];
+          currentZoneIdRef.current = zone.id;
+          onZoneSelect?.(featureToDrawnZone(zone));
           updateTrashButtonState(true);
         }
       });
@@ -639,16 +670,21 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
       map.on("draw.selectionchange", (e: any) => {
         const features = e.features;
         if (features && features.length > 0) {
-          onZoneSelect?.(featureToDrawnZone(features[0]));
+          const zone = features[0];
+          currentZoneIdRef.current = zone.id;
+          onZoneSelect?.(featureToDrawnZone(zone));
           updateTrashButtonState(true);
         } else {
-          onZoneSelect?.(null);
+          // Don't clear zone selection when draw tool is deselected
+          // Zone should persist in app state even if not highlighted in draw control
+          // Only clear on explicit delete (handled by draw.delete event)
           updateTrashButtonState(false);
         }
       });
 
       // Handle zone deletion
       map.on("draw.delete", () => {
+        currentZoneIdRef.current = null;
         onZoneSelect?.(null);
         updateTrashButtonState(false);
       });

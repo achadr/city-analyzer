@@ -50,8 +50,8 @@ export default function App(): React.JSX.Element {
     // Reset activity chain when selecting a new person
     setShowActivityChain(false);
     setActivityChainData(null);
-    // Clear zone selection when selecting a person
-    setSelectedZone(null);
+    // Don't clear zone selection - allow both to coexist
+    // The PersonPanel will show tabs when both are active
   };
 
   const handleZoneSelect: ZoneSelectionCallback = (zone) => {
