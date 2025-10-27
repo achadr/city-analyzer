@@ -118,8 +118,10 @@ function selectTransport(distance: number, age: number): string {
 
 function generateRealisticTime(baseHour: number, baseMinute: number, variationMinutes: number): string {
   const totalMinutes = baseHour * 60 + baseMinute + Math.floor(Math.random() * variationMinutes * 2) - variationMinutes;
-  const hours = Math.floor(totalMinutes / 60) % 24;
-  const minutes = totalMinutes % 60;
+  // Properly handle negative values and wrap around 24 hours (0-1439 minutes)
+  const normalizedMinutes = ((totalMinutes % 1440) + 1440) % 1440;
+  const hours = Math.floor(normalizedMinutes / 60);
+  const minutes = normalizedMinutes % 60;
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
