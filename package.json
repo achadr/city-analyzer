@@ -5,10 +5,11 @@
   "type": "commonjs",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npm run generate && tsc && vite build",
     "preview": "vite preview",
     "start": "node dist/index.js",
-    "generate": "tsx src/generators/populationGenerator.ts"
+    "generate": "tsx src/generators/populationGenerator.ts",
+    "generate:sample": "tsx src/generators/populationGenerator.ts 500"
   },
   "keywords": [],
   "author": "",

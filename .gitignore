@@ -7,4 +7,6 @@ node_modules/
 # Build output
 dist/
 
+# Generated data (regenerated on build)
+data/population.json
 
