@@ -299,7 +299,6 @@ city-analyzer/
 ├── docs/
 │   └── images/              # Screenshots for documentation
 ├── public/                  # Static assets
-├── CLAUDE.md               # Development workflow docs
 └── README.md               # This file
 ```
 
@@ -402,15 +401,7 @@ Drawn polygon
 - **`src/components/PersonPanel.tsx`**: Right panel with charts and metrics
 - **`src/maps/utils/zoneMetrics.ts`**: Zone analysis calculations
 - **`src/types/index.ts`**: All TypeScript type definitions
-- **`CLAUDE.md`**: Detailed architecture documentation
 
-### Development Workflow
-
-See [CLAUDE.md](./CLAUDE.md) for:
-- Git workflow (feature branch per session)
-- Detailed architecture documentation
-- Code organization principles
-- Component responsibilities
 
 ---
 
@@ -432,4 +423,4 @@ For questions or suggestions, please open an issue on GitHub.
 
 ---
 
-**Built with ❤️ using React, TypeScript, and Mapbox GL JS**
+**Built with using React, TypeScript, and Mapbox GL JS**
