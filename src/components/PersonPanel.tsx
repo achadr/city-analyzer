@@ -5,6 +5,7 @@ import { TIMELINE_ICON_SIZE, CHART_CONFIG, ACTIVITY_COLORS } from "../constants"
 import ActivityIcon from "./icons/ActivityIcon";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { calculateZoneMetrics } from "../maps/utils/zoneMetrics";
+import { useResponsive } from "../hooks/useResponsive";
 
 type DrawnZone = {
   id: string;
@@ -20,13 +21,15 @@ type Props = {
   selectedZone?: DrawnZone | null;
   populationData?: Person[];
   onTabChange?: (tab: "person" | "zone") => void;
+  isOpen?: boolean;
 };
 
-export default function PersonPanel({ person, onClose, onActivityChainToggle, selectedZone, populationData = [], onTabChange }: Props): React.JSX.Element | null {
+export default function PersonPanel({ person, onClose, onActivityChainToggle, selectedZone, populationData = [], onTabChange, isOpen = true }: Props): React.JSX.Element | null {
   const [showActivityChain, setShowActivityChain] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<"person" | "zone">("person");
   const prevPersonRef = React.useRef<Person | null>(null);
   const prevZoneRef = React.useRef<DrawnZone | null | undefined>(undefined);
+  const { isMobile } = useResponsive();
 
   // Calculate zone metrics when a zone is selected
   const zoneMetrics = useMemo(() => {
@@ -95,8 +98,32 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle, se
     if (t === "walk") return "🚶";
     return "";
   }
+
+  const panelStyle: React.CSSProperties = isMobile
+    ? {
+        ...PANEL_STYLES.containerMobile,
+        transform: isOpen ? "translateY(0)" : "translateY(100%)",
+      }
+    : PANEL_STYLES.container;
+
   return (
-    <div style={PANEL_STYLES.container}>
+    <>
+      {isMobile && isOpen && (
+        <div
+          onClick={onClose}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.5)",
+            zIndex: 999,
+            transition: "opacity 0.3s ease-in-out",
+          }}
+        />
+      )}
+      <div style={panelStyle}>
       <div style={PANEL_STYLES.header}>
         {showTabs ? (
           // Show tabs when both person and zone are active
@@ -476,7 +503,8 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle, se
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

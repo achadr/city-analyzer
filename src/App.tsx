@@ -5,8 +5,10 @@ import TimeSlider from "./components/TimeSlider";
 import PersonPanel from "./components/PersonPanel";
 import { Person, LayersState, FiltersState, ActivityChainData, PersonSelectionCallback, ActivityChainToggleCallback } from "./types";
 import { DEFAULT_TIME } from "./constants";
+import { useResponsive } from "./hooks/useResponsive";
 
 export default function App(): React.JSX.Element {
+  const { isMobile } = useResponsive();
   const token = import.meta.env.VITE_MAPBOX_TOKEN as string;
   if (!token) {
     return (
@@ -32,6 +34,10 @@ export default function App(): React.JSX.Element {
   const [populationData, setPopulationData] = useState<Person[]>([]);
   const [activePanelTab, setActivePanelTab] = useState<"person" | "zone" | null>(null);
 
+  // Mobile panel state
+  const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
+  const [isPersonPanelOpen, setIsPersonPanelOpen] = useState(false);
+
   // Load population data
   useEffect(() => {
     fetch("/data/population.json")
@@ -52,12 +58,22 @@ export default function App(): React.JSX.Element {
     setActivityChainData(null);
     // Don't clear zone selection - allow both to coexist
     // The PersonPanel will show tabs when both are active
+
+    // Auto-open person panel on mobile when person selected
+    if (isMobile && person) {
+      setIsPersonPanelOpen(true);
+    }
   };
 
   const handleZoneSelect: ZoneSelectionCallback = (zone) => {
     setSelectedZone(zone);
     // Don't clear person selection - allow both to coexist
     // The PersonPanel will show tabs when both are active
+
+    // Auto-open person panel on mobile when zone selected
+    if (isMobile && zone) {
+      setIsPersonPanelOpen(true);
+    }
   };
 
   const handlePanelTabChange = (tab: "person" | "zone") => {
@@ -66,6 +82,35 @@ export default function App(): React.JSX.Element {
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
+      {/* Mobile floating action button for filters/layers */}
+      {isMobile && (
+        <button
+          onClick={() => setIsSidePanelOpen(true)}
+          style={{
+            position: "fixed",
+            top: 16,
+            left: 16,
+            zIndex: 900,
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            background: "#3b82f6",
+            color: "white",
+            border: "none",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "20px",
+            fontWeight: "bold",
+          }}
+          aria-label="Open filters and layers"
+        >
+          ☰
+        </button>
+      )}
+
       <SidePanel
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -73,6 +118,8 @@ export default function App(): React.JSX.Element {
         onLayersChange={setLayers}
         filters={filters}
         onFiltersChange={setFilters}
+        isOpen={isMobile ? isSidePanelOpen : true}
+        onClose={() => setIsSidePanelOpen(false)}
       />
       <MapView
         accessToken={token}
@@ -90,20 +137,24 @@ export default function App(): React.JSX.Element {
         selectedPerson={selectedPerson}
         selectedZone={selectedZone}
       />
-      <PersonPanel
-        person={selectedPerson}
-        onClose={() => {
-          setSelectedPerson(null);
-          setShowActivityChain(false);
-          setActivityChainData(null);
-          setSelectedZone(null);
-          setActivePanelTab(null);
-        }}
-        onActivityChainToggle={handleActivityChainToggle}
-        selectedZone={selectedZone}
-        populationData={populationData}
-        onTabChange={handlePanelTabChange}
-      />
+      {(selectedPerson || selectedZone) && (
+        <PersonPanel
+          person={selectedPerson}
+          onClose={() => {
+            setSelectedPerson(null);
+            setShowActivityChain(false);
+            setActivityChainData(null);
+            setSelectedZone(null);
+            setActivePanelTab(null);
+            setIsPersonPanelOpen(false);
+          }}
+          onActivityChainToggle={handleActivityChainToggle}
+          selectedZone={selectedZone}
+          populationData={populationData}
+          onTabChange={handlePanelTabChange}
+          isOpen={isMobile ? isPersonPanelOpen : true}
+        />
+      )}
       <TimeSlider minutes={minutes} onChange={setMinutes} />
     </div>
   );

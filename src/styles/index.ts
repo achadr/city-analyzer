@@ -74,6 +74,22 @@ export const PANEL_STYLES = {
     flexDirection: "column" as const,
     fontFamily: "system-ui, sans-serif"
   },
+  containerMobile: {
+    position: "fixed" as const,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    width: "100%",
+    background: COLORS.white,
+    boxShadow: "0 -4px 16px rgba(0,0,0,0.15)",
+    zIndex: 1000,
+    display: "flex",
+    flexDirection: "column" as const,
+    fontFamily: "system-ui, sans-serif",
+    borderRadius: "16px 16px 0 0",
+    maxHeight: "70vh",
+    transition: "transform 0.3s ease-in-out"
+  },
   header: {
     padding: SPACING.md,
     borderBottom: `1px solid ${COLORS.gray[200]}`,

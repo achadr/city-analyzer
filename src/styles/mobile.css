@@ -1,0 +1,135 @@
+/* Mobile-specific CSS enhancements */
+
+/* Ensure touch-friendly tap targets (min 44x44px) */
+button,
+a,
+input[type="checkbox"],
+input[type="radio"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Improve tap target size for small controls */
+input[type="checkbox"],
+input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+/* Prevent text selection on mobile when interacting with map */
+.mapboxgl-canvas-container {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Improve Mapbox control button sizes for mobile */
+.mapboxgl-ctrl-group button {
+  min-width: 44px !important;
+  min-height: 44px !important;
+}
+
+/* Better popup positioning on mobile */
+.mapboxgl-popup {
+  max-width: 90vw !important;
+}
+
+.mapboxgl-popup-content {
+  padding: 12px !important;
+  font-size: 14px !important;
+}
+
+/* Smooth scroll for panel content on mobile */
+@media (max-width: 767px) {
+  /* Enable smooth scrolling with momentum */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Adjust panel content for mobile */
+  .panel-content {
+    max-height: calc(60vh - 60px);
+    overflow-y: auto;
+  }
+
+  /* Larger touch targets for filter options */
+  label {
+    padding: 8px 4px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Improve range slider for mobile */
+  input[type="range"] {
+    height: 44px;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    background: #3b82f6;
+    cursor: pointer;
+    border-radius: 50%;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    background: #3b82f6;
+    cursor: pointer;
+    border-radius: 50%;
+    border: none;
+  }
+
+  /* Prevent zoom on input focus (iOS) */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Better chart scaling on mobile */
+  .recharts-wrapper {
+    font-size: 12px;
+  }
+
+  /* Hide compass on very small screens */
+  .mapboxgl-ctrl-compass {
+    display: none;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 768px) and (max-width: 1024px) {
+  /* Slightly larger controls for tablet */
+  button,
+  a {
+    min-height: 40px;
+    min-width: 40px;
+  }
+}
+
+/* Prevent horizontal scroll */
+html,
+body {
+  overflow-x: hidden;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Root container */
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}

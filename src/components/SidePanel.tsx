@@ -1,5 +1,7 @@
 import React from "react";
 import type { LayersState, FiltersState, AgeBand, SexFilter, ActivityFilter } from "../types";
+import { useResponsive } from "../hooks/useResponsive";
+import { RESPONSIVE_DIMENSIONS } from "../constants/breakpoints";
 
 type Props = {
   activeTab: "layers" | "filters";
@@ -8,16 +10,74 @@ type Props = {
   onLayersChange: (s: LayersState) => void;
   filters: FiltersState;
   onFiltersChange: (f: FiltersState) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 };
 
 export default function SidePanel(props: Props): React.JSX.Element {
-  const { activeTab, onTabChange, layers, onLayersChange, filters, onFiltersChange } = props;
+  const { activeTab, onTabChange, layers, onLayersChange, filters, onFiltersChange, isOpen = true, onClose } = props;
   const [ageOpen, setAgeOpen] = React.useState(true);
   const [sexOpen, setSexOpen] = React.useState(true);
   const [activityOpen, setActivityOpen] = React.useState(true);
+  const { breakpoint, isMobile } = useResponsive();
+
+  const dimensions = RESPONSIVE_DIMENSIONS[breakpoint];
+
+  // Mobile: Full screen drawer from bottom
+  // Desktop: Fixed left panel
+  const panelStyle: React.CSSProperties = isMobile
+    ? {
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1000,
+        width: "100%",
+        background: "#fff",
+        borderRadius: "16px 16px 0 0",
+        boxShadow: "0 -4px 16px rgba(0,0,0,0.15)",
+        overflow: "hidden",
+        fontFamily: "system-ui, sans-serif",
+        maxHeight: dimensions.maxPanelHeight,
+        display: "flex",
+        flexDirection: "column",
+        transform: isOpen ? "translateY(0)" : "translateY(100%)",
+        transition: "transform 0.3s ease-in-out",
+      }
+    : {
+        position: "absolute",
+        top: 16,
+        left: 16,
+        zIndex: 1000,
+        width: dimensions.sidebarWidth,
+        background: "#fff",
+        borderRadius: 8,
+        boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+        overflow: "hidden",
+        fontFamily: "system-ui, sans-serif",
+        maxHeight: dimensions.maxPanelHeight,
+        display: "flex",
+        flexDirection: "column",
+      };
 
   return (
-    <div style={{ position: "absolute", top: 16, left: 16, zIndex: 1000, width: 300, background: "#fff", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.15)", overflow: "hidden", fontFamily: "system-ui, sans-serif", maxHeight: "calc(100vh - 32px)", display: "flex", flexDirection: "column" }}>
+    <>
+      {isMobile && isOpen && (
+        <div
+          onClick={onClose}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.5)",
+            zIndex: 999,
+            transition: "opacity 0.3s ease-in-out",
+          }}
+        />
+      )}
+      <div style={panelStyle}>
       <div style={{ display: "flex", borderBottom: "2px solid #e5e7eb" }}>
         <button
           onClick={() => onTabChange("layers")}
@@ -128,7 +188,8 @@ export default function SidePanel(props: Props): React.JSX.Element {
           )}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

@@ -1,4 +1,6 @@
 import React from "react";
+import { useResponsive } from "../hooks/useResponsive";
+import { RESPONSIVE_DIMENSIONS } from "../constants/breakpoints";
 
 type Props = {
   minutes: number; // 0..1439
@@ -8,9 +10,12 @@ type Props = {
 export default function TimeSlider({ minutes, onChange }: Props): React.JSX.Element {
   const hh = String(Math.floor(minutes / 60)).padStart(2, "0");
   const mm = String(minutes % 60).padStart(2, "0");
+  const { breakpoint, isMobile } = useResponsive();
+  const dimensions = RESPONSIVE_DIMENSIONS[breakpoint];
+
   return (
-    <div style={{ position: "absolute", left: 0, right: 0, bottom: 10, display: "flex", justifyContent: "center", pointerEvents: "none" }}>
-      <div style={{ background: "#fff", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.15)", padding: 10, width: 520, pointerEvents: "auto", fontFamily: "system-ui, sans-serif" }}>
+    <div style={{ position: "absolute", left: 0, right: 0, bottom: isMobile ? 10 : 10, display: "flex", justifyContent: "center", pointerEvents: "none", padding: isMobile ? "0 16px" : 0 }}>
+      <div style={{ background: "#fff", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.15)", padding: isMobile ? 12 : 10, width: isMobile ? "100%" : dimensions.timeSliderWidth, maxWidth: isMobile ? "100%" : dimensions.timeSliderWidth, pointerEvents: "auto", fontFamily: "system-ui, sans-serif" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
           <span>Time</span>
           <strong>{hh}:{mm}</strong>
