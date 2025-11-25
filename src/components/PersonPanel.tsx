@@ -103,6 +103,7 @@ export default function PersonPanel({ person, onClose, onActivityChainToggle, se
     ? {
         ...PANEL_STYLES.containerMobile,
         transform: isOpen ? "translateY(0)" : "translateY(100%)",
+        background: "rgba(255, 255, 255, 0.80)", // Semi-transparent on mobile to see activity chain
       }
     : PANEL_STYLES.container;
 

@@ -754,15 +754,23 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
 
         const tooltip = document.createElement('div');
         tooltip.style.position = 'absolute';
-        tooltip.style.left = '28px';
-        tooltip.style.top = '-8px';
+        // On mobile (narrow screens), position tooltip below to avoid map controls
+        // On desktop, position to the right
+        const isMobileWidth = window.innerWidth < 768;
+        if (isMobileWidth) {
+          tooltip.style.left = '-100px';
+          tooltip.style.top = '28px'; // Position below the help button
+        } else {
+          tooltip.style.left = '28px';
+          tooltip.style.top = '-8px';
+        }
         tooltip.style.background = 'white';
         tooltip.style.border = '1px solid #ddd';
         tooltip.style.borderRadius = '8px';
         tooltip.style.padding = '12px 16px';
         tooltip.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
         tooltip.style.zIndex = '10000';
-        tooltip.style.width = '280px';
+        tooltip.style.width = isMobileWidth ? '260px' : '280px';
         tooltip.style.fontSize = '13px';
         tooltip.style.lineHeight = '1.6';
         tooltip.style.pointerEvents = 'none';
