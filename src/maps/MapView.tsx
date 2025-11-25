@@ -7,9 +7,7 @@ import { toMinutes, filterByTime } from "./utils/time";
 import { makeAgeFilter, filterByAgeBand, makeSexFilter, filterBySex, makeActivityFilter, filterByActivity } from "./utils/age";
 import { Person, ActivityChainData, PersonSelectionCallback, ActivityChainToggleCallback, AgeBand, SexFilter, ActivityFilter } from "../types";
 import {
-  POINT_RADIUS,
   POINT_STROKE_WIDTH,
-  SELECTED_POINT_RADIUS,
   SELECTED_POINT_STROKE_WIDTH,
   CLUSTER_RADIUS,
   CLUSTER_MAX_ZOOM,
@@ -174,13 +172,36 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
     if (!mapContainer.current || mapRef.current) return;
     mapboxgl.accessToken = accessToken;
 
-            const map = new mapboxgl.Map({
-              container: mapContainer.current,
-              style: MAP_CONFIG.style,
-              center: MAP_CONFIG.center,
-              zoom: MAP_CONFIG.zoom
-            });
+    const map = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: MAP_CONFIG.style,
+      center: MAP_CONFIG.center,
+      zoom: MAP_CONFIG.zoom,
+      // Mobile-friendly touch interactions
+      touchZoomRotate: true,
+      touchPitch: true,
+      dragRotate: true,
+      // Large click tolerance for better touch detection on all devices
+      // This makes clicking/tapping more forgiving without negative effects
+      clickTolerance: 15,
+    });
     mapRef.current = map;
+
+    // Add navigation controls for mobile (zoom in/out buttons)
+    map.addControl(new mapboxgl.NavigationControl({
+      showCompass: true,
+      showZoom: true,
+      visualizePitch: true
+    }), 'top-right');
+
+    // Add geolocation control for mobile users
+    map.addControl(new mapboxgl.GeolocateControl({
+      positionOptions: {
+        enableHighAccuracy: true
+      },
+      trackUserLocation: true,
+      showUserHeading: true
+    }), 'top-right');
 
     map.on("load", () => {
       map.addSource("arrondissements", {
@@ -308,7 +329,8 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
             "leisure", ACTIVITY_COLORS.leisure,
             ACTIVITY_COLORS.default
           ],
-          "circle-radius": POINT_RADIUS,
+          // Use larger radius for better visibility and touch targets (8px instead of 6px)
+          "circle-radius": 8,
           "circle-stroke-width": POINT_STROKE_WIDTH,
           "circle-stroke-color": "#fff"
         }
@@ -322,7 +344,8 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
         source: "selected-point",
                 paint: {
                   "circle-color": "#ffffff",
-                  "circle-radius": SELECTED_POINT_RADIUS,
+                  // Slightly larger selected radius to match larger point size
+                  "circle-radius": 12,
                   "circle-stroke-width": SELECTED_POINT_STROKE_WIDTH,
                   "circle-stroke-color": "#111827"
                 }
@@ -390,13 +413,17 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
       };
       const handleClick = (e: any) => {
         try {
+          console.log("Point clicked:", e.features?.length, "features found");
+
           // Ignore clicks on points when in drawing mode
           if (isDrawingModeRef.current) {
+            console.log("Drawing mode active, ignoring click");
             return;
           }
 
           const f = (e.features && e.features[0]) as any;
           const id = f?.properties?.id as number | undefined;
+          console.log("Person ID:", id);
           if (id == null) {
             onPersonSelect && onPersonSelect(null);
             selectedPointRef.current = null;
@@ -455,10 +482,88 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
         handleClick
       };
 
+      // Global map click handler - acts as fallback for mobile touch events
+      // Layer-specific handlers may not fire consistently in touch mode
+      map.on("click", (e) => {
+        const features = map.queryRenderedFeatures(e.point, {
+          layers: [unclusteredId, "clusters"]
+        });
+        console.log("Global map click at:", e.point, "Features found:", features.length);
+
+        if (features.length > 0 && features[0].layer) {
+          const feature = features[0];
+          const layerId = feature.layer?.id;
+          console.log("Layer:", layerId, "Properties:", feature.properties);
+
+          // Manually trigger point click if it's an unclustered point
+          // This ensures touch events work even if layer-specific handler doesn't fire
+          if (layerId === unclusteredId) {
+            console.log("Manually triggering point click handler");
+            handleClick({ features: [feature] });
+          }
+        }
+      });
+
       // Initially add interactions
       map.on("mouseenter", unclusteredId, handleMouseEnter);
       map.on("mouseleave", unclusteredId, handleMouseLeave);
       map.on("click", unclusteredId, handleClick);
+
+      // Add touch event for mobile - Mapbox's click event may not fire on touch devices
+      map.on("touchend", unclusteredId, (e) => {
+        // Don't handle point clicks when in drawing mode
+        if (isDrawingModeRef.current) {
+          console.log("[TOUCH] Ignoring point click - drawing mode active");
+          return;
+        }
+        console.log("[TOUCH] touchend event fired on point layer");
+        // Prevent default to stop map from panning
+        e.preventDefault();
+        handleClick(e);
+      });
+
+      // Add cluster click to zoom in
+      const clustersId = "clusters";
+      const handleClusterClick = (e: any) => {
+        console.log("Cluster clicked");
+        const features = map.queryRenderedFeatures(e.point, {
+          layers: [clustersId]
+        });
+        const clusterId = features[0]?.properties?.cluster_id;
+        console.log("Cluster ID:", clusterId);
+        if (clusterId) {
+          const source = map.getSource("population") as mapboxgl.GeoJSONSource;
+          source.getClusterExpansionZoom(clusterId, (err, zoom) => {
+            if (err || zoom == null) return;
+            console.log("Zooming to:", zoom);
+            map.easeTo({
+              center: (features[0].geometry as any).coordinates,
+              zoom: zoom
+            });
+          });
+        }
+      };
+
+      map.on("click", clustersId, handleClusterClick);
+
+      // Add touch event for mobile - cluster clicking
+      map.on("touchend", clustersId, (e) => {
+        // Don't handle cluster clicks when in drawing mode
+        if (isDrawingModeRef.current) {
+          console.log("[TOUCH] Ignoring cluster click - drawing mode active");
+          return;
+        }
+        console.log("[TOUCH] touchend event fired on cluster layer");
+        handleClusterClick(e);
+      });
+
+      // Change cursor on cluster hover
+      map.on("mouseenter", clustersId, () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", clustersId, () => {
+        map.getCanvas().style.cursor = "";
+      });
 
       // Add arrondissement hover interactions
       const popup = new mapboxgl.Popup({
@@ -517,7 +622,7 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
       });
 
       // Click handler to zoom into arrondissement
-      map.on("click", arrFillId, (e) => {
+      const handleArrondissementClick = (e: any) => {
         if (e.features && e.features.length > 0) {
           // Prevent event propagation to avoid multiple triggers
           e.preventDefault();
@@ -560,6 +665,19 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
             });
           }
         }
+      };
+
+      map.on("click", arrFillId, handleArrondissementClick);
+
+      // Add touch event for mobile - arrondissement clicking
+      map.on("touchend", arrFillId, (e) => {
+        // Don't handle arrondissement clicks when in drawing mode
+        if (isDrawingModeRef.current) {
+          console.log("[TOUCH] Ignoring arrondissement click - drawing mode active");
+          return;
+        }
+        console.log("[TOUCH] touchend event fired on arrondissement layer");
+        handleArrondissementClick(e);
       });
 
       // Helper function to transform draw feature to DrawnZone
@@ -695,9 +813,9 @@ export default function MapView({ accessToken, arrondissementsVisible = true, po
         },
         defaultMode: "simple_select",
         boxSelect: false,
-        touchEnabled: true,
+        touchEnabled: true,  // Required for touch-based zone drawing
         clickBuffer: 2,
-        touchBuffer: 25,
+        touchBuffer: 15,  // Reduced from 25 to allow better point detection
         userProperties: true
       });
 
